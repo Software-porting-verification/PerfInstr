@@ -27,16 +27,5 @@ TREC_FLAG(int, atexit_sleep_ms, 0,
 TREC_FLAG(bool, die_after_fork, true,
           "Die after multi-threaded fork if the child creates new threads.")
 TREC_FLAG(bool, output_trace, true, "Output trace.")
-TREC_FLAG(bool, record_mutex, true, "Record Mutex Lock/Unlock Operations?")
-TREC_FLAG(bool, record_rwlock, true, "Record Reader/Writer Lock/Unlock Operations?")
-TREC_FLAG(bool, record_cond, true, "Record Conditions?")
-TREC_FLAG(bool, record_alloc_free, true, "Record Memory Object Allocate/Free?")
-TREC_FLAG(bool, record_branch, true, "Record conditional branch insts.")
-TREC_FLAG(bool, record_func_enter_exit, true,
-          "Record function enter/exit insts.")
-TREC_FLAG(bool, record_func_param, true, "Record function parameter insts.")
-TREC_FLAG(bool, record_read, true, "Record Memory Read Operations.")
-TREC_FLAG(bool, record_write, true, "Record Memory Write Operations.")
-TREC_FLAG(bool, record_range, true, "Record Range Memory Read Operations.")
 TREC_FLAG(bool, print_debug_on_dead, false,
           "Print Debug Info On Receiving Dead Signals")

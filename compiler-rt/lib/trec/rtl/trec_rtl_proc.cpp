@@ -12,43 +12,42 @@
 
 #include "sanitizer_common/sanitizer_placement_new.h"
 #include "trec_rtl.h"
-#include "trec_mman.h"
 #include "trec_flags.h"
 
 namespace __trec {
 
-Processor *ProcCreate() {
-  void *mem = InternalAlloc(sizeof(Processor));
-  internal_memset(mem, 0, sizeof(Processor));
-  Processor *proc = new(mem) Processor;
-  proc->thr = nullptr;
-#if !SANITIZER_GO
-  AllocatorProcStart(proc);
-#endif
-  return proc;
-}
+// Processor *ProcCreate() {
+//   void *mem = InternalAlloc(sizeof(Processor));
+//   internal_memset(mem, 0, sizeof(Processor));
+//   Processor *proc = new(mem) Processor;
+//   proc->thr = nullptr;
+// #if !SANITIZER_GO
+//   AllocatorProcStart(proc);
+// #endif
+//   return proc;
+// }
 
-void ProcDestroy(Processor *proc) {
-  CHECK_EQ(proc->thr, nullptr);
-#if !SANITIZER_GO
-  AllocatorProcFinish(proc);
-#endif
-  proc->~Processor();
-  InternalFree(proc);
-}
+// void ProcDestroy(Processor *proc) {
+//   CHECK_EQ(proc->thr, nullptr);
+// #if !SANITIZER_GO
+//   AllocatorProcFinish(proc);
+// #endif
+//   proc->~Processor();
+//   InternalFree(proc);
+// }
 
-void ProcWire(Processor *proc, ThreadState *thr) {
-  CHECK_EQ(thr->proc1, nullptr);
-  CHECK_EQ(proc->thr, nullptr);
-  thr->proc1 = proc;
-  proc->thr = thr;
-}
+// void ProcWire(Processor *proc, ThreadState *thr) {
+//   CHECK_EQ(thr->proc1, nullptr);
+//   CHECK_EQ(proc->thr, nullptr);
+//   thr->proc1 = proc;
+//   proc->thr = thr;
+// }
 
-void ProcUnwire(Processor *proc, ThreadState *thr) {
-  CHECK_EQ(thr->proc1, proc);
-  CHECK_EQ(proc->thr, thr);
-  thr->proc1 = nullptr;
-  proc->thr = nullptr;
-}
+// void ProcUnwire(Processor *proc, ThreadState *thr) {
+//   CHECK_EQ(thr->proc1, proc);
+//   CHECK_EQ(proc->thr, thr);
+//   thr->proc1 = nullptr;
+//   proc->thr = nullptr;
+// }
 
 }  // namespace __trec

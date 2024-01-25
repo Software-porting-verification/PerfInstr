@@ -21,20 +21,16 @@ append_list_if(COMPILER_RT_HAS_WGLOBAL_CONSTRUCTORS_FLAG -Wglobal-constructors
 
 set(TREC_SOURCES
   rtl/trec_flags.cpp
-  rtl/trec_interceptors_posix.cpp
   rtl/trec_interface.cpp
-  rtl/trec_interface_atomic.cpp
-  rtl/trec_mman.cpp
   rtl/trec_preinit.cpp
   rtl/trec_rtl.cpp
-  rtl/trec_rtl_mutex.cpp
   rtl/trec_rtl_proc.cpp
   rtl/trec_rtl_thread.cpp
   )
 
-set(TREC_CXX_SOURCES
-  rtl/trec_new_delete.cpp
-  )
+# set(TREC_CXX_SOURCES
+#   rtl/trec_new_delete.cpp
+#   )
 
 if(UNIX)
   # Assume Linux
@@ -47,12 +43,8 @@ set(TREC_HEADERS
   rtl/trec_defs.h
   rtl/trec_flags.h
   rtl/trec_flags.inc
-  rtl/trec_interceptors.h
   rtl/trec_interface.h
   rtl/trec_interface_inl.h
-  rtl/trec_mman.h
-  rtl/trec_mutex.h
-  rtl/trec_mutexset.h
   rtl/trec_platform.h
   rtl/trec_rtl.h)
 
@@ -76,7 +68,7 @@ if(APPLE)
     SHARED
     OS ${TREC_SUPPORTED_OS}
     ARCHS ${TREC_SUPPORTED_ARCH}
-    SOURCES ${TREC_SOURCES} ${TREC_CXX_SOURCES} 
+    SOURCES ${TREC_SOURCES} # ${TREC_CXX_SOURCES} 
     ADDITIONAL_HEADERS ${TREC_HEADERS}
     OBJECT_LIBS RTInterception
                 RTSanitizerCommon
@@ -91,7 +83,7 @@ if(APPLE)
   add_compiler_rt_object_libraries(RTTrec_dynamic
     OS ${TREC_SUPPORTED_OS}
     ARCHS ${TREC_SUPPORTED_ARCH}
-    SOURCES ${TREC_SOURCES} ${TREC_CXX_SOURCES} 
+    SOURCES ${TREC_SOURCES} # ${TREC_CXX_SOURCES} 
     ADDITIONAL_HEADERS ${TREC_HEADERS}
     CFLAGS ${TREC_RTL_CFLAGS})
 else()
@@ -108,25 +100,27 @@ else()
       ADDITIONAL_HEADERS ${TREC_HEADERS}
       CFLAGS ${TREC_RTL_CFLAGS}
       PARENT_TARGET trec)
-    add_compiler_rt_runtime(clang_rt.trec_cxx
-      STATIC
-      ARCHS ${arch}
-      SOURCES ${TREC_CXX_SOURCES}
-      ADDITIONAL_HEADERS ${TREC_HEADERS}
-      CFLAGS ${TREC_RTL_CFLAGS}
-      PARENT_TARGET trec)
+    # add_compiler_rt_runtime(clang_rt.trec_cxx
+    #   STATIC
+    #   ARCHS ${arch}
+    #   SOURCES ${TREC_CXX_SOURCES}
+    #   ADDITIONAL_HEADERS ${TREC_HEADERS}
+    #   CFLAGS ${TREC_RTL_CFLAGS}
+    #   PARENT_TARGET trec)
     list(APPEND TREC_RUNTIME_LIBRARIES clang_rt.trec-${arch}
-                                       clang_rt.trec_cxx-${arch})
+                                       # clang_rt.trec_cxx-${arch}
+                                       )
     add_sanitizer_rt_symbols(clang_rt.trec
       ARCHS ${arch}
       EXTRA rtl/trec.syms.extra)
-    add_sanitizer_rt_symbols(clang_rt.trec_cxx
-      ARCHS ${arch}
-      EXTRA rtl/trec.syms.extra)
+    # add_sanitizer_rt_symbols(clang_rt.trec_cxx
+    #   ARCHS ${arch}
+    #   EXTRA rtl/trec.syms.extra)
     add_dependencies(trec clang_rt.trec-${arch}
-                          clang_rt.trec_cxx-${arch}
+                          # clang_rt.trec_cxx-${arch}
                           clang_rt.trec-${arch}-symbols
-                          clang_rt.trec_cxx-${arch}-symbols)
+                          # clang_rt.trec_cxx-${arch}-symbols
+                          )
   endforeach()
 endif()
 
