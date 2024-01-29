@@ -45,6 +45,7 @@
 #include <bit>
 #include <filesystem>
 #include <map>
+#include <string>
 
 #include "SqliteDebugWriter.h"
 #include "TraceRecorder.h"
@@ -132,6 +133,7 @@ bool TraceRecorder::instrmentFunction(Function& F) {
   // within the module constructor.
   if (F.getName() == kTrecModuleCtorName)
     return false;
+
   // If we cannot find the source file, then this function may not be written by
   // user.
   // Do not instrument it.
@@ -144,28 +146,29 @@ bool TraceRecorder::instrmentFunction(Function& F) {
   // deal with cpp name mangling
   // getName() may return the name after mangling.
   // use getSubprogram()->getName() if possible
-  StringRef FuncName = F.getName();
-  int line = 0;
+  StringRef funcName = F.getName();
   if (F.getSubprogram()) {
-    FuncName = F.getSubprogram()->getName();
-    line = F.getSubprogram()->getLine();
+    funcName = F.getSubprogram()->getName();
   }
 
   IRBuilder<> IRB(&*F.getEntryBlock().getFirstInsertionPt());
-  std::string CurrentFileName = "";
+  std::string fileName = "";
   if (F.getSubprogram()->getFile()) {
-    CurrentFileName =
+    fileName =
         concatFileName(F.getSubprogram()->getFile()->getDirectory().str(),
                        F.getSubprogram()->getFile()->getFilename().str());
   }
-  int nameA = debugger.getVarID(FuncName.str().c_str());
-  int nameB = debugger.getFileID(CurrentFileName.c_str());
-  int col = 0;
-  uint64_t fid =
-      debugger.ReformID(debugger.getDebugInfoID(nameA, nameB, line, col));
 
-  IRB.CreateCall(TrecFuncEntry, {IRB.getInt16(1), IRB.getInt16(F.arg_size()),
-                                 IRB.getInt64(fid)});
+  int line = F.getSubprogram()->getLine();
+  int fileID = debugger.getFileID(fileName.c_str());
+  int funcID = debugger.getFuncID(funcName.str()
+    .append(": ").append(std::to_string(line)).c_str());
+  uint64_t fid = debugger.craftFID(fileID, funcID);
+
+  llvm::dbgs() << "instr " << funcName << " line " << line << "\n";
+  llvm::dbgs() << "\t filename: " << F.getSubprogram()->getFilename() << "\n";
+
+  IRB.CreateCall(TrecFuncEntry, {IRB.getInt64(fid)});
 
   EscapeEnumerator EE(F);
   while (IRBuilder<>* AtExit = EE.Next()) {
@@ -181,7 +184,7 @@ bool TraceRecorder::instrmentFunction(Function& F) {
 extern "C" LLVM_ATTRIBUTE_WEAK ::llvm::PassPluginLibraryInfo
 llvmGetPassPluginInfo() {
   return {.APIVersion = LLVM_PLUGIN_API_VERSION,
-          .PluginName = "TraceRecorder pass",
+          .PluginName = "TraceRecorder (perf) pass",
           .PluginVersion = "v3.0",
           .RegisterPassBuilderCallbacks = [](PassBuilder& PB) {
             PB.registerPipelineStartEPCallback(
