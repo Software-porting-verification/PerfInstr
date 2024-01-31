@@ -1,3 +1,11 @@
+//===---------------- Perf Runtime (perfRT) -------------------------------===//
+//
+// Author: Mao Yifu, maoif@ios.ac.cn
+//
+// Runtime for performance metrics collection.
+//
+//===----------------------------------------------------------------------===//
+
 #include <filesystem>
 #include <iostream>
 #include <fstream>
