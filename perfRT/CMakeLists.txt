@@ -1,4 +1,4 @@
-set(PERFRT_SRC perfRT.cpp c-map.cpp map.cpp)
+set(PERFRT_SRC perfRT.cpp)
 add_library(perfRT STATIC ${PERFRT_SRC})
 # target_link_libraries(perfRT pthread)
 set(CMAKE_CXX_STANDARD_REQUIRED true)
