@@ -54,6 +54,7 @@ enum Mode : unsigned char {
 
 constexpr char envDataPath[] = "TREC_PERF_DIR";
 constexpr char envMode[]     = "TREC_PERF_MODE";
+constexpr char envInterval[] = "TREC_PERF_INTERVAL";
 constexpr int defaultNumOfBuckets = 1024;
 // constexpr int idxInfinity = defaultNumOfBuckets - 1;
 // constexpr int lengthOfTimeIntervals = defaultNumOfBuckets - 1;
@@ -64,6 +65,8 @@ static Mode mode;
 // used to check if there's a fork
 static pid_t pid;
 static unsigned int timeIntervals[defaultNumOfBuckets];
+// time interval as per bucket (nanosecond)
+static int interval = 5000;
 
 // fid -> buckets
 static std::unordered_map<long, std::vector<long>> * funcCallCounter;
@@ -191,7 +194,7 @@ void __trec_init() {
   std::string comm(std::filesystem::path(program_invocation_name).filename());
   std::string pidStr(std::to_string(pid));
   dataPath = new std::string("trec_perf_" + comm + "_" + pidStr + ".bin");
-  std::cout << *dataPath << "\n";
+  printf("data file: %s\n", dataPath->c_str());
 
   env = getenv(envMode);
   if (env == nullptr) {
@@ -208,6 +211,16 @@ void __trec_init() {
     fprintf(stderr, 
       "Unknown value for env %s: %s, available ones: time, cycle, insn\n", envMode, env);
     abort();
+  }
+
+  env = getenv(envInterval);
+  if (env != nullptr) {
+    int step = atoi(env);
+    if (step <= 0) {
+      fprintf(stderr, "Invalid interval %s, defaults to %d\n", env, interval);
+    } else {
+      interval = step;
+    }
   }
 
   initTimeIntervals();
@@ -297,10 +310,10 @@ static void flushData() {
 }
 
 static void initTimeIntervals() {
-  int start = 5000;
+  int start = 0;
   for (int i = 0; i < defaultNumOfBuckets; i++) {
     timeIntervals[i] = start;
-    start += 5000;
+    start += interval;
   }
 }
 
