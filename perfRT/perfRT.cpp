@@ -34,6 +34,10 @@
 #include <sys/types.h>
 #include <sys/ioctl.h>
 
+constexpr bool debug = false;
+#define DEBUG(body) if (debug) { do { body } while (0); }
+
+
 extern "C" {
 void __trec_perf_func_enter(long);
 void __trec_perf_func_exit(long);
@@ -111,13 +115,13 @@ struct perfFD {
     ioctl(fd, PERF_EVENT_IOC_RESET, 0);
     ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
 
-    printf("created perf fd %d for tid %d \n", fd, tid);
+    DEBUG(printf("created perf fd %d for tid %d \n", fd, tid););
   }
 
   ~perfFD() {
     ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
     close(fd);
-    printf("closed perf fd %d\n", fd);
+    DEBUG(printf("closed perf fd %d\n", fd););
   }
 };
 
@@ -133,7 +137,8 @@ static thread_local std::unordered_map<long, long> TL_lastCallTimePerFunc;
 //===----------------------------------------------------------------------===//
 
 void __trec_perf_func_enter(long fid) {
-  printf("enter %ld\n", fid);
+  DEBUG(printf("enter %ld\n", fid););
+
   long t = currentTime();
   TL_lastCallTimePerFunc[fid] = t;
 }
@@ -153,13 +158,13 @@ void __trec_perf_func_exit(long fid) {
 
   auto & bucket = funcCallCounter->at(fid).at(i);
   bucket++;
-  printf("exit %ld delta %ld\n", fid, delta);
+  DEBUG(printf("exit %ld delta %ld\n", fid, delta););
 
   lock->unlock();
 }
 
 void __trec_deinit() {
-  printf("perfRT deinit\n");
+  DEBUG(printf("perfRT deinit\n"););
 
   *shouldQuit = true;
   flusher->join();
@@ -172,7 +177,7 @@ void __trec_deinit() {
 }
 
 void __trec_init() {
-  printf("perfRT init\n");
+  DEBUG(printf("perfRT init\n"););
   
   char * env = getenv(envDataPath);
   if (env == nullptr) {
@@ -194,7 +199,7 @@ void __trec_init() {
   std::string comm(program_invocation_short_name);
   std::string pidStr(std::to_string(pid));
   dataPath = new std::string("trec_perf_" + comm + "_" + pidStr + ".bin");
-  printf("data file: %s\n", dataPath->c_str());
+  DEBUG(printf("data file: %s\n", dataPath->c_str()););
 
   env = getenv(envMode);
   if (env == nullptr) {
@@ -233,7 +238,7 @@ void __trec_init() {
 
   atexit(__trec_deinit);
 
-  printf("perfRT init done\n");
+  DEBUG(printf("perfRT init done\n"););
 }
 
 //===----------------------------------------------------------------------===//
@@ -294,13 +299,13 @@ static void flushImpl() {
 }
 
 static void flushData() {
-  printf("flusher started\n");
+  DEBUG(printf("flusher started\n"););
   while (true) {
     // Sleep for 1s, but check for quit signal frequently.
     for (int i = 0; i < 20; i++) {
       if (*shouldQuit) {
         flushImpl();
-        printf("flusher quit\n");
+        DEBUG(printf("flusher quit\n"););
         return;
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(50));
