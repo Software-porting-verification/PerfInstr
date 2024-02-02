@@ -53,7 +53,8 @@ static int  computeIndexFromDelta(unsigned int);
 enum Mode : unsigned char {
   TIME  = 0,
   CYCLE = 1,
-  INSN  = 2
+  INSN  = 2,
+  NONE
 };
 
 constexpr char envDataPath[] = "TREC_PERF_DIR";
@@ -137,6 +138,8 @@ static thread_local std::unordered_map<long, long> TL_lastCallTimePerFunc;
 //===----------------------------------------------------------------------===//
 
 void __trec_perf_func_enter(long fid) {
+  if (mode == NONE) return;
+
   DEBUG(printf("enter %ld\n", fid););
 
   long t = currentTime();
@@ -144,6 +147,8 @@ void __trec_perf_func_enter(long fid) {
 }
 
 void __trec_perf_func_exit(long fid) {
+  if (mode == NONE) return;
+
   long t   = currentTime();
   long val = TL_lastCallTimePerFunc.at(fid);
   long delta = t - val;
@@ -164,6 +169,8 @@ void __trec_perf_func_exit(long fid) {
 }
 
 void __trec_deinit() {
+  if (mode == NONE) return;
+
   DEBUG(printf("perfRT deinit\n"););
 
   *shouldQuit = true;
@@ -178,8 +185,24 @@ void __trec_deinit() {
 
 void __trec_init() {
   DEBUG(printf("perfRT init\n"););
+
+  char * env = getenv(envMode);
+  if (env == nullptr || strcmp(env, "none") == 0) {
+    mode = NONE;
+    return;
+  } else if (strcmp(env, "time") == 0) {
+    mode = TIME;
+  } else if (strcmp(env, "cycle") == 0) {
+    mode = CYCLE;
+  } else if (strcmp(env, "insn") == 0) {
+    mode = INSN;
+  } else {
+    fprintf(stderr, 
+      "Unknown value for env %s: %s, available ones: time, cycle, insn\n", envMode, env);
+    abort();
+  }
   
-  char * env = getenv(envDataPath);
+  env = getenv(envDataPath);
   if (env == nullptr) {
     fprintf(stderr, "env %s not set!\n", envDataPath);
     abort();
@@ -200,23 +223,6 @@ void __trec_init() {
   std::string pidStr(std::to_string(pid));
   dataPath = new std::string("trec_perf_" + comm + "_" + pidStr + ".bin");
   DEBUG(printf("data file: %s\n", dataPath->c_str()););
-
-  env = getenv(envMode);
-  if (env == nullptr) {
-    fprintf(stderr, "env %s not set!\n", envMode);
-    abort();
-  }
-  if (strcmp(env, "time") == 0) {
-    mode = TIME;
-  } else if (strcmp(env, "cycle") == 0) {
-    mode = CYCLE;
-  } else if (strcmp(env, "insn") == 0) {
-    mode = INSN;
-  } else {
-    fprintf(stderr, 
-      "Unknown value for env %s: %s, available ones: time, cycle, insn\n", envMode, env);
-    abort();
-  }
 
   env = getenv(envInterval);
   if (env != nullptr) {
