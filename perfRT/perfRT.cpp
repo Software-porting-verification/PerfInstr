@@ -191,7 +191,7 @@ void __trec_init() {
 
   pid = getpid();
   // generate data file name: trec_perf_comm_pid.bin
-  std::string comm(std::filesystem::path(program_invocation_name).filename());
+  std::string comm(program_invocation_short_name);
   std::string pidStr(std::to_string(pid));
   dataPath = new std::string("trec_perf_" + comm + "_" + pidStr + ".bin");
   printf("data file: %s\n", dataPath->c_str());
