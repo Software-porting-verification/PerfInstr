@@ -131,13 +131,16 @@ void TraceRecorder::initialize(Module& M) {
 bool TraceRecorder::instrmentFunction(Function& F) {
   // This is required to prevent instrumenting call to __trec_init from
   // within the module constructor.
-  if (F.getName() == kTrecModuleCtorName)
+  StringRef funcName = F.getName();
+  if (funcName == kTrecModuleCtorName || funcName.starts_with("__cxx"))
     return false;
-
   // If we cannot find the source file, then this function may not be written by
   // user.
   // Do not instrument it.
   if (F.getSubprogram() == nullptr || F.getSubprogram()->getFile() == nullptr)
+    return false;
+  // skip C++ standard library
+  if (F.getSubprogram()->getFilename().contains("include/c++"))
     return false;
 
   debugger.beginSQL();
@@ -146,7 +149,6 @@ bool TraceRecorder::instrmentFunction(Function& F) {
   // deal with cpp name mangling
   // getName() may return the name after mangling.
   // use getSubprogram()->getName() if possible
-  StringRef funcName = F.getName();
   if (F.getSubprogram()) {
     funcName = F.getSubprogram()->getName();
   }
@@ -165,7 +167,7 @@ bool TraceRecorder::instrmentFunction(Function& F) {
     .append(": ").append(std::to_string(line)).c_str());
   uint64_t fid = debugger.craftFID(fileID, funcID);
 
-  llvm::dbgs() << "instr " << funcName << " line " << line << "\n";
+  llvm::dbgs() << "instr " << funcName << " line " << line << " fid " << fid << "\n";
   llvm::dbgs() << "\t filename: " << F.getSubprogram()->getFilename() << "\n";
 
   IRB.CreateCall(TrecFuncEntry, {IRB.getInt64(fid)});
