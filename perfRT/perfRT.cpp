@@ -263,7 +263,8 @@ inline static long currentTime() {
 static void flushImpl() {
   if (getpid() != pid) {
     // TODO write to a new file
-
+    fprintf(stderr, "Program %s has forked, trec perf data is nor recorded in the child process\n", program_invocation_short_name);
+    return;
   }
 
   lock->lock();
