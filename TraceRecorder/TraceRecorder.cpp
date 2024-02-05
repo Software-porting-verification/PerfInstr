@@ -189,7 +189,7 @@ llvmGetPassPluginInfo() {
           .PluginName = "TraceRecorder (perf) pass",
           .PluginVersion = "v3.0",
           .RegisterPassBuilderCallbacks = [](PassBuilder& PB) {
-            PB.registerPipelineStartEPCallback(
+            PB.registerOptimizerLastEPCallback(
                 [](ModulePassManager& MPM, OptimizationLevel Level) {
                   MPM.addPass(ModuleTraceRecorderPass());
                 });
