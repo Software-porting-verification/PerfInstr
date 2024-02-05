@@ -64,6 +64,8 @@ constexpr int defaultNumOfBuckets = 1024;
 // constexpr int idxInfinity = defaultNumOfBuckets - 1;
 // constexpr int lengthOfTimeIntervals = defaultNumOfBuckets - 1;
 
+// TODO why __trec_init() is called in every thread?
+static std::atomic_bool inited(false);
 static Mode mode;
 // used to run finalization code upon thread exit
 // static pthread_key_t finalizeKey;
@@ -184,6 +186,7 @@ void __trec_deinit() {
 }
 
 void __trec_init() {
+  if (inited) return;
   DEBUG(printf("perfRT init\n"););
 
   char * env = getenv(envMode);
@@ -245,6 +248,7 @@ void __trec_init() {
   atexit(__trec_deinit);
 
   DEBUG(printf("perfRT init done\n"););
+  inited = true;
 }
 
 //===----------------------------------------------------------------------===//
