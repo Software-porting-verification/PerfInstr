@@ -221,7 +221,7 @@ void __trec_init() {
   // generate data file name: trec_perf_comm_pid.bin
   std::string comm(program_invocation_short_name);
   std::string pidStr(std::to_string(pid));
-  dataPath = new std::string("trec_perf_" + comm + "_" + pidStr + ".bin");
+  dataPath = new std::string(p.append("trec_perf_" + comm + "_" + pidStr + ".bin"));
   DEBUG(printf("data file: %s\n", dataPath->c_str()););
 
   env = getenv(envInterval);
