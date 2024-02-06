@@ -186,7 +186,12 @@ void __trec_deinit() {
 }
 
 void __trec_init() {
-  if (inited) return;
+  if (inited) {
+    return;
+  } else {
+    inited = true;
+  }
+
   DEBUG(printf("perfRT init\n"););
 
   char * env = getenv(envMode);
@@ -248,7 +253,6 @@ void __trec_init() {
   atexit(__trec_deinit);
 
   DEBUG(printf("perfRT init done\n"););
-  inited = true;
 }
 
 //===----------------------------------------------------------------------===//

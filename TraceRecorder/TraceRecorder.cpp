@@ -129,9 +129,17 @@ void TraceRecorder::initialize(Module& M) {
 }
 
 bool TraceRecorder::instrmentFunction(Function& F) {
+  StringRef funcName = F.getName();
+
+  // Builtins, llvm intrinsics, lib functions are all empty.
+  // Skip them so getFirstInsertionPt() below won't segfault.
+  if (F.empty()) {
+    // llvm::dbgs() << F.getName() << " is empty\n";
+    return false;
+  }
+
   // This is required to prevent instrumenting call to __trec_init from
   // within the module constructor.
-  StringRef funcName = F.getName();
   if (funcName == kTrecModuleCtorName || funcName.starts_with("__cxx"))
     return false;
   // If we cannot find the source file, then this function may not be written by
