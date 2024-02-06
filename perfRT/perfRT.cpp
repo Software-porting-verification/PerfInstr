@@ -186,10 +186,9 @@ void __trec_deinit() {
 }
 
 void __trec_init() {
-  if (inited) {
+  bool b = false;
+  if (!std::atomic_compare_exchange_strong(&inited, &b, true)) {
     return;
-  } else {
-    inited = true;
   }
 
   DEBUG(printf("perfRT init\n"););
