@@ -137,7 +137,7 @@ SqliteDebugWriter::SqliteDebugWriter() : db(nullptr), dbID(-1) {
     exit(status);
   }
 
-  printf("creating subtables\n");
+  // printf("creating subtables\n");
   if (isCreated) {
     status = sqlite3_exec(db, SQL_CREATE_TABLES, nullptr, nullptr, &errmsg);
     if (status) {
@@ -256,7 +256,7 @@ void SqliteDebugWriter::beginSQL() {
 }
 
 uint64_t SqliteDebugWriter::craftFID(int fileID, int funcID) {
-  printf("dbID: %d, fileID: %d, funcID: %d\n", dbID, fileID, funcID);
+  // printf("dbID: %d, fileID: %d, funcID: %d\n", dbID, fileID, funcID);
   assert(dbID >= 1 && fileID >= 1 && funcID >= 1);
   assert((dbID < (1 << 16)) && (fileID < (1 << 24)) && (funcID < (1 << 24)));
 

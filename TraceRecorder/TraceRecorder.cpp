@@ -175,8 +175,8 @@ bool TraceRecorder::instrmentFunction(Function& F) {
     .append(": ").append(std::to_string(line)).c_str());
   uint64_t fid = debugger.craftFID(fileID, funcID);
 
-  llvm::dbgs() << "instr " << funcName << " line " << line << " fid " << fid << "\n";
-  llvm::dbgs() << "\t filename: " << F.getSubprogram()->getFilename() << "\n";
+  // llvm::dbgs() << "instr " << funcName << " line " << line << " fid " << fid << "\n";
+  // llvm::dbgs() << "\t filename: " << F.getSubprogram()->getFilename() << "\n";
 
   IRB.CreateCall(TrecFuncEntry, {IRB.getInt64(fid)});
 
