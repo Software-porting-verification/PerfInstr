@@ -1,8 +1,0 @@
-__trec_init
-__trec_perf_func_enter
-__trec_perf_func_exit
-__trec_get_current_fiber
-__trec_create_fiber
-__trec_destroy_fiber
-__trec_switch_to_fiber
-__trec_set_fiber_name
