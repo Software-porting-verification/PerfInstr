@@ -1,0 +1,8 @@
+#!/bin/bash
+
+CLANG=/bin/clang
+PASS_PLUGIN=/lib/PerfInstrPass.so
+FLAGS="-g -fno-discard-value-names -lperfRT -fpass-plugin=$TREC_PLUGIN -fuse-ld=lld"
+
+# -lstdc++: perfRT is written in C++
+$CLANG $FLAGS -lstdc++ $@
