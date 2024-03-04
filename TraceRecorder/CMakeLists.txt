@@ -4,9 +4,7 @@ add_llvm_pass_plugin(TraceRecorder
     # List your source files here.
     TraceRecorder.cpp
     SqliteDebugWriter.cpp
-    DEPENDS
-    clang_rt.trec-x86_64  
-    # clang_rt.trec_cxx-x86_64
 )
+target_compile_options(TraceRecorder PUBLIC "-g" "-Og")
 
 
