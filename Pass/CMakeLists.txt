@@ -2,7 +2,7 @@
 link_libraries(sqlite3)
 add_llvm_pass_plugin(PerfInstrPass
     # List your source files here.
-    TraceRecorder.cpp
+    PerfInstrPass.cpp
     SqliteDebugWriter.cpp
 )
 target_compile_options(PerfInstrPass PUBLIC "-g" "-Og")
