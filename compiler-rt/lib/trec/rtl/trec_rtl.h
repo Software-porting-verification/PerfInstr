@@ -250,11 +250,6 @@ class Context {
   Flags flags;
   __sanitizer::Mutex mutex;
   bool thread_after_fork = false;
-
-  void open_directory(const char *t);
-  void CopyDir(const char *path, int Maintid);
-  int CopyFile(const char *src_path, const char *dest_path);
-  void InheritDir(const char *path, uptr _pid);
 };
 
 extern Context *ctx;  // The one and the only global runtime context.

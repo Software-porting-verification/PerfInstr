@@ -27,6 +27,7 @@ using namespace __trec;
 void __trec_init() {
   // cur_thread_init();
   // Initialize(cur_thread());
+  Report("trec init\n");
   Initialize();
 }
 

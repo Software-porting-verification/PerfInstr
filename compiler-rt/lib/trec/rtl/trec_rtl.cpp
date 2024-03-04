@@ -33,26 +33,16 @@
 #include "trec_platform.h"
 #include "ubsan/ubsan_init.h"
 
-#ifdef __SSE3__
-// <emmintrin.h> transitively includes <stdlib.h>,
-// and it's prohibited to include std headers into trec runtime.
-// So we do this dirty trick.
-#define _MM_MALLOC_H_INCLUDED
-#define __MM_MALLOC_H
-#include <emmintrin.h>
-typedef __m128i m128;
-#endif
-
 namespace __trec {
 
-#if !SANITIZER_GO && !SANITIZER_APPLE
-__attribute__((tls_model("initial-exec")))
-THREADLOCAL char cur_thread_placeholder[sizeof(ThreadState)] ALIGNED(64);
-#endif
+// #if !SANITIZER_GO && !SANITIZER_APPLE
+// __attribute__((tls_model("initial-exec")))
+// THREADLOCAL char cur_thread_placeholder[sizeof(ThreadState)] ALIGNED(64);
+// #endif
 static char ctx_placeholder[sizeof(Context)] ALIGNED(64);
 Context *ctx;
 
-static char thread_registry_placeholder[sizeof(ThreadRegistry)];
+// static char thread_registry_placeholder[sizeof(ThreadRegistry)];
 
 // static ThreadContextBase *CreateThreadContext(u32 tid) {
 //   void *mem = internal_alloc(MBlockThreadContex, sizeof(ThreadContext));
@@ -72,155 +62,6 @@ Context::Context()
       //     CreateThreadContext, kMaxTid, kThreadQuarantineSize, kMaxTidReuse)),
       temp_dir_path(nullptr) {}
 
-int Context::CopyFile(const char *src_path, const char *dest_path) {
-  // char *read_buff = (char *)internal_alloc(
-  //     MBlockShadowStack, TREC_BUFFER_SIZE);  // buffer size:32M
-  // int src_fd = internal_open(src_path, O_RDONLY);
-  // int dest_fd = internal_open(dest_path, O_CREAT | O_WRONLY | O_TRUNC, 0700);
-  // if (src_fd < 0 || dest_fd < 0)
-  //   return 1;
-  // uptr read_bytes = 0;
-  // while ((read_bytes = internal_read(src_fd, read_buff, TREC_BUFFER_SIZE)) >
-  //        0) {
-  //   while (read_bytes > 0) {
-  //     char *buff_pos = read_buff;
-  //     uptr write_bytes = internal_write(dest_fd, buff_pos, read_bytes);
-  //     if (write_bytes == (uptr)-1 && errno != EINTR) {
-  //       Report("Failed to copy file from %s to %s, errno=%u\n", src_path,
-  //              dest_path, errno);
-  //       Die();
-  //     } else {
-  //       read_bytes -= write_bytes;
-  //       buff_pos += write_bytes;
-  //     }
-  //   }
-  // }
-  // internal_close(src_fd);
-  // internal_close(dest_fd);
-  // internal_free(read_buff);
-  // return 0;
-}
-
-void Context::CopyDir(const char *path, int Maintid) {
-  // char parent_path[TREC_DIR_PATH_LEN];
-  // internal_snprintf(parent_path, TREC_DIR_PATH_LEN - 1, "%s/trec_%lu",
-  //                   trace_dir, internal_getpid());
-  // char src_path[2 * TREC_DIR_PATH_LEN], dest_path[2 * TREC_DIR_PATH_LEN];
-
-  // if (mkdir(path, 0700)) {
-  //   Report("Create temp directory failed\n");
-  //   Die();
-  // }
-
-  // internal_snprintf(dest_path, 2 * TREC_DIR_PATH_LEN - 1, "%s/header", path);
-  // if (mkdir(dest_path, 0700)) {
-  //   Report("Create temp header directory failed\n");
-  //   Die();
-  // }
-  // internal_snprintf(dest_path, 2 * TREC_DIR_PATH_LEN - 1, "%s/metadata", path);
-  // if (mkdir(dest_path, 0700)) {
-  //   Report("Create temp metadata directory failed\n");
-  //   Die();
-  // }
-  // internal_snprintf(dest_path, 2 * TREC_DIR_PATH_LEN - 1, "%s/trace", path);
-  // if (mkdir(dest_path, 0700)) {
-  //   Report("Create temp trace directory failed\n");
-  //   Die();
-  // }
-
-  // internal_snprintf(src_path, 2 * TREC_DIR_PATH_LEN - 1, "%s/header/%u.bin",
-  //                   parent_path, Maintid);
-  // internal_snprintf(dest_path, 2 * TREC_DIR_PATH_LEN - 1, "%s/header/%u.bin",
-  //                   path, Maintid);
-
-  // if (CopyFile(src_path, dest_path)) {
-  //   Report("Parent copy bin header failed\n");
-  //   Die();
-  // }
-  // internal_snprintf(src_path, 2 * TREC_DIR_PATH_LEN - 1,
-  //                   "%s/header/modules_%u.txt", parent_path, Maintid);
-  // internal_snprintf(dest_path, 2 * TREC_DIR_PATH_LEN - 1,
-  //                   "%s/header/modules_%u.txt", path, Maintid);
-  // if (CopyFile(src_path, dest_path)) {
-  //   Report("Parent copy module file failed\n");
-  //   Die();
-  // }
-
-  // internal_snprintf(src_path, 2 * TREC_DIR_PATH_LEN - 1, "%s/metadata/%u.bin",
-  //                   parent_path, Maintid);
-  // internal_snprintf(dest_path, 2 * TREC_DIR_PATH_LEN - 1, "%s/metadata/%u.bin",
-  //                   path, Maintid);
-  // if (CopyFile(src_path, dest_path)) {
-  //   Report("Parent copy metadata file failed\n");
-  //   Die();
-  // }
-  // internal_snprintf(src_path, 2 * TREC_DIR_PATH_LEN - 1, "%s/trace/%u.bin",
-  //                   parent_path, Maintid);
-  // internal_snprintf(dest_path, 2 * TREC_DIR_PATH_LEN - 1, "%s/trace/%u.bin",
-  //                   path, Maintid);
-  // if (CopyFile(src_path, dest_path)) {
-  //   Report("Parent copy trace file failed\n");
-  //   Die();
-  // }
-
-  // return;
-}
-
-void Context::InheritDir(const char *path, uptr _pid) {
-  // char dirpath[TREC_DIR_PATH_LEN];
-  // internal_snprintf(dirpath, TREC_DIR_PATH_LEN - 1, "%s/trec_%lu", trace_dir,
-  //                   _pid);
-  // if (internal_rename(path, dirpath)) {
-  //   Report("Child inherit directory failed\n");
-  //   Die();
-  // }
-  // return;
-}
-
-void Context::open_directory(const char *dirpath) {
-  // open or create
-  char path[TREC_DIR_PATH_LEN];
-  internal_snprintf(path, TREC_DIR_PATH_LEN - 1, "%s/trec_%lu", dirpath,
-                    internal_getpid());
-
-  struct stat _st = {0};
-  open_dir_mutex.Lock();
-  uptr IS_EXISTS = __sanitizer::internal_stat(path, &_st);
-  char filepath[TREC_DIR_PATH_LEN];
-  if (IS_EXISTS == 0) {
-    open_dir_mutex.Unlock();
-    return;
-  } else {
-    if (mkdir(path, ACCESSPERMS) != 0) {
-      Report(
-          "Could not create directory at %s, errno=%d, exists=%lu, is_dir=%d\n",
-          path, errno, IS_EXISTS, S_ISDIR(_st.st_mode));
-      Die();
-    }
-  }
-  internal_snprintf(filepath, TREC_DIR_PATH_LEN - 1, "%s/%s", path, "trace");
-  if (mkdir(filepath, ACCESSPERMS) != 0) {
-    Report("Could not create trace directory at %s, errno=%d\n", filepath,
-           errno);
-    Die();
-  }
-
-  internal_snprintf(filepath, TREC_DIR_PATH_LEN - 1, "%s/%s", path, "metadata");
-  if (mkdir(filepath, ACCESSPERMS) != 0) {
-    Report("Could not create metadata directory at %s, errno=%d\n", filepath,
-           errno);
-    Die();
-  }
-
-  internal_snprintf(filepath, TREC_DIR_PATH_LEN - 1, "%s/%s", path, "header");
-  if (mkdir(filepath, ACCESSPERMS) != 0) {
-    Report("Could not create header directory at %s, errno=%d\n", filepath,
-           errno);
-    Die();
-  }
-  open_dir_mutex.Unlock();
-}
-
 // The objects are allocated in TLS, so one may rely on zero-initialization.
 ThreadState::ThreadState(Context *ctx, int tid, int unique_id)
     : tid(tid), unique_id(unique_id) {}
@@ -232,6 +73,7 @@ static void OnStackUnwind(const SignalContext &sig, const void *,
   stack->Unwind(StackTrace::GetNextInstructionPc(sig.pc), sig.bp, sig.context,
                 common_flags()->fast_unwind_on_fatal);
 }
+
 void TrecFlushTraceOnDead() {
   uptr num_threads = 0;
 
@@ -262,7 +104,7 @@ void TrecCheckFailed(const char *file, int line, const char *cond, u64 v1,
   Die();
 }
 
-void Initialize(ThreadState *thr) {
+void Initialize() {
   // Thread safe because done before all threads exist.
   static bool is_initialized = false;
   if (is_initialized)
