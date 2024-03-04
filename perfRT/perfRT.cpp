@@ -275,7 +275,7 @@ inline static long currentTimePerf() {
 }
 
 inline static long currentTime() {
-  return currentTimeClock();
+  return currentTimePerf();
 }
 
 static void flushImpl() {
