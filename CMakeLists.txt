@@ -22,5 +22,5 @@ link_directories(${LLVM_LIBRARY_DIRS})
 
 # Our pass lives in this subdirectory.
 # add_subdirectory(skeleton)
-add_subdirectory(TraceRecorder)
+add_subdirectory(Pass)
 add_subdirectory(perfRT)

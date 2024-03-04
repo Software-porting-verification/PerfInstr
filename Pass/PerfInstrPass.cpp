@@ -48,7 +48,7 @@
 #include <string>
 
 #include "SqliteDebugWriter.h"
-#include "TraceRecorder.h"
+#include "PerfInstrPass.h"
 
 using namespace llvm;
 
