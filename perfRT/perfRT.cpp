@@ -83,6 +83,7 @@ static std::thread * flusher;
 static std::atomic_bool * shouldQuit;
 static std::string * dataPath;
 
+#if defined (USE_PERF_SYSCALL)
 struct perfFD {
   int fd;
 
@@ -130,6 +131,8 @@ struct perfFD {
 
 // a new perf fd will be created for each thread
 static thread_local struct perfFD tl_perffd;
+#endif
+
 // per thread, fid -> time
 static thread_local std::unordered_map<long, long> TL_lastCallTimePerFunc;
 
@@ -267,15 +270,21 @@ inline static long currentTimeClock() {
   return ts.tv_sec + ts.tv_nsec;
 }
 
+#if defined (USE_PERF_SYSCALL)
 inline static long currentTimePerf() {
   long count;
   read(tl_perffd.fd, &count, sizeof(count));
 
   return count;
 }
+#endif
 
 inline static long currentTime() {
+#if defined (USE_PERF_SYSCALL)
   return currentTimePerf();
+#else
+#endif
+  return currentTimeClock();
 }
 
 static void flushImpl() {
