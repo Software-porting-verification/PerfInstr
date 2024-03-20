@@ -11,6 +11,7 @@
 #include <fstream>
 #include <cstdlib>
 #include <map>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -82,6 +83,13 @@ static std::thread * flusher;
 // tell the flush thread to quit
 static std::atomic_bool * shouldQuit;
 static std::string * dataPath;
+// exe + all args
+static std::string * g_cmdline;
+// path of this executable
+static std::string * g_binPath;
+// initial working directrory,
+// "initial" because program may later call chdir()
+static std::string * g_pwd;
 
 #if defined (USE_PERF_SYSCALL)
 struct perfFD {
@@ -186,6 +194,9 @@ void __trec_deinit() {
   delete shouldQuit;
   delete flusher;
   delete dataPath;
+  delete g_binPath;
+  delete g_cmdline;
+  delete g_pwd;
 }
 
 void __trec_init() {
@@ -244,6 +255,39 @@ void __trec_init() {
     }
   }
 
+  // read program name and cmd args
+  std::ifstream file("/proc/self/cmdline");
+  if (file.bad()) {
+    fprintf(stderr, "Fail to read /proc/self/cmdline\n");
+    abort();
+  }
+  std::stringstream ss;
+  char c;
+  while (!file.eof()) {
+    file >> c;
+    ss << c;
+  }
+  g_cmdline = new std::string(ss.str());
+
+  char buf[1024];
+  memset(&buf, '\0', sizeof(buf));
+  // read program binary path
+  if (readlink("/proc/self/exe", buf, sizeof(buf)) < 0) {
+      fprintf(stderr, "Fail to read /proc/self/exe\n");
+      abort();
+  }
+  g_binPath = new std::string(buf);
+
+  // read the initial working direcrory
+  memset(&buf, '\0', sizeof(buf));
+  if (readlink("/proc/self/cwd", buf, sizeof(buf)) < 0) {
+      fprintf(stderr, "Fail to read /proc/self/cwd\n");
+      abort();
+  }
+  g_pwd = new std::string(buf);
+
+  // printf("bin: %s, pwd: %s\n", g_binPath->c_str(), g_pwd->c_str());
+
   initTimeIntervals();
   
   funcCallCounter = new std::unordered_map<long, std::vector<long>>();
@@ -297,6 +341,13 @@ static void flushImpl() {
   lock->lock();
 
   std::ofstream ofs(dataPath->c_str(), std::ios::out | std::ios::binary | std::ios::trunc);
+  ofs.write(g_cmdline->c_str(), g_cmdline->length());
+  // End of Text: delimitor
+  ofs.put('\3');
+  ofs.write(g_binPath->c_str(), g_binPath->length());
+  ofs.put('\3');
+  ofs.write(g_pwd->c_str(), g_pwd->length());
+  ofs.put('\3');
   // write mode
   ofs.write((const char *)&mode, sizeof(mode));
   // write vector length
