@@ -58,31 +58,31 @@ enum Mode : unsigned char {
   NONE
 };
 
-constexpr char envDataPath[] = "TREC_PERF_DIR";
-constexpr char envMode[]     = "TREC_PERF_MODE";
-constexpr char envInterval[] = "TREC_PERF_INTERVAL";
-constexpr int defaultNumOfBuckets = 1024;
+constexpr char g_envDataPath[] = "TREC_PERF_DIR";
+constexpr char g_envMode[]     = "TREC_PERF_MODE";
+constexpr char g_envInterval[] = "TREC_PERF_INTERVAL";
+constexpr int  g_defaultNumOfBuckets = 1024;
 // constexpr int idxInfinity = defaultNumOfBuckets - 1;
 // constexpr int lengthOfTimeIntervals = defaultNumOfBuckets - 1;
 
 // TODO why __trec_init() is called in every thread?
-static std::atomic_bool inited(false);
-static Mode mode;
+static std::atomic_bool g_inited(false);
+static Mode g_mode;
 // used to run finalization code upon thread exit
 // static pthread_key_t finalizeKey;
 // used to check if there's a fork
-static pid_t pid;
-static unsigned int timeIntervals[defaultNumOfBuckets];
+static pid_t g_pid;
+static unsigned int g_timeIntervals[g_defaultNumOfBuckets];
 // time interval as per bucket (nanosecond)
-static int interval = 5000;
+static int g_interval = 5000;
 
 // fid -> buckets
-static std::unordered_map<long, std::vector<long>> * funcCallCounter;
-static std::mutex  * lock;
-static std::thread * flusher;
+static std::unordered_map<long, std::vector<long>> * g_funcCallCounter;
+static std::mutex  * g_lock;
+static std::thread * g_flusher;
 // tell the flush thread to quit
-static std::atomic_bool * shouldQuit;
-static std::string * dataPath;
+static std::atomic_bool * g_shouldQuit;
+static std::string * g_dataPath;
 // exe + all args
 static std::string * g_cmdline;
 // path of this executable
@@ -106,13 +106,13 @@ struct perfFD {
     pe.exclude_kernel = 1;
     pe.exclude_hv = 1;
 
-    if (mode == TIME) {
+    if (g_mode == TIME) {
       pe.type = PERF_TYPE_SOFTWARE;
       pe.config = PERF_COUNT_SW_CPU_CLOCK;
-    } else if (mode == CYCLE) {
+    } else if (g_mode == CYCLE) {
       pe.type = PERF_TYPE_HARDWARE;
       pe.config = PERF_COUNT_HW_REF_CPU_CYCLES;
-    } else if (mode == INSN) {
+    } else if (g_mode == INSN) {
       pe.type = PERF_TYPE_HARDWARE;
       pe.config = PERF_COUNT_HW_INSTRUCTIONS;
     }
@@ -151,7 +151,7 @@ static thread_local std::unordered_map<long, long> TL_lastCallTimePerFunc;
 //===----------------------------------------------------------------------===//
 
 void __trec_perf_func_enter(long fid) {
-  if (mode == NONE) return;
+  if (g_mode == NONE) return;
 
   DEBUG(printf("enter %ld\n", fid););
 
@@ -160,40 +160,40 @@ void __trec_perf_func_enter(long fid) {
 }
 
 void __trec_perf_func_exit(long fid) {
-  if (mode == NONE) return;
+  if (g_mode == NONE) return;
 
   long t   = currentTime();
   long val = TL_lastCallTimePerFunc.at(fid);
   long delta = t - val;
   int i = computeIndexFromDelta((unsigned int) delta);
   
-  lock->lock();
+  g_lock->lock();
 
-  if (funcCallCounter->count(fid) == 0) {
-    std::vector<long> newVec(defaultNumOfBuckets, 0);
-    funcCallCounter->insert({fid, std::move(newVec)});
+  if (g_funcCallCounter->count(fid) == 0) {
+    std::vector<long> newVec(g_defaultNumOfBuckets, 0);
+    g_funcCallCounter->insert({fid, std::move(newVec)});
   }
 
-  auto & bucket = funcCallCounter->at(fid).at(i);
+  auto & bucket = g_funcCallCounter->at(fid).at(i);
   bucket++;
   DEBUG(printf("exit %ld delta %ld\n", fid, delta););
 
-  lock->unlock();
+  g_lock->unlock();
 }
 
 void __trec_deinit() {
-  if (mode == NONE) return;
+  if (g_mode == NONE) return;
 
   DEBUG(printf("perfRT deinit\n"););
 
-  *shouldQuit = true;
-  flusher->join();
+  *g_shouldQuit = true;
+  g_flusher->join();
 
-  delete funcCallCounter;
-  delete lock;
-  delete shouldQuit;
-  delete flusher;
-  delete dataPath;
+  delete g_funcCallCounter;
+  delete g_lock;
+  delete g_shouldQuit;
+  delete g_flusher;
+  delete g_dataPath;
   delete g_binPath;
   delete g_cmdline;
   delete g_pwd;
@@ -201,31 +201,31 @@ void __trec_deinit() {
 
 void __trec_init() {
   bool b = false;
-  if (!std::atomic_compare_exchange_strong(&inited, &b, true)) {
+  if (!std::atomic_compare_exchange_strong(&g_inited, &b, true)) {
     return;
   }
 
   DEBUG(printf("perfRT init\n"););
 
-  char * env = getenv(envMode);
+  char * env = getenv(g_envMode);
   if (env == nullptr || strcmp(env, "none") == 0) {
-    mode = NONE;
+    g_mode = NONE;
     return;
   } else if (strcmp(env, "time") == 0) {
-    mode = TIME;
+    g_mode = TIME;
   } else if (strcmp(env, "cycle") == 0) {
-    mode = CYCLE;
+    g_mode = CYCLE;
   } else if (strcmp(env, "insn") == 0) {
-    mode = INSN;
+    g_mode = INSN;
   } else {
     fprintf(stderr, 
-      "Unknown value for env %s: %s, available ones: time, cycle, insn\n", envMode, env);
+      "Unknown value for env %s: %s, available ones: time, cycle, insn\n", g_envMode, env);
     abort();
   }
   
-  env = getenv(envDataPath);
+  env = getenv(g_envDataPath);
   if (env == nullptr) {
-    fprintf(stderr, "env %s not set!\n", envDataPath);
+    fprintf(stderr, "env %s not set!\n", g_envDataPath);
     abort();
   }
   auto p = std::filesystem::path(env);
@@ -238,20 +238,20 @@ void __trec_init() {
     std::filesystem::create_directories(p);
   }
 
-  pid = getpid();
+  g_pid = getpid();
   // generate data file name: trec_perf_comm_pid.bin
   std::string comm(program_invocation_short_name);
-  std::string pidStr(std::to_string(pid));
-  dataPath = new std::string(p.append("trec_perf_" + comm + "_" + pidStr + ".bin"));
-  DEBUG(printf("data file: %s\n", dataPath->c_str()););
+  std::string pidStr(std::to_string(g_pid));
+  g_dataPath = new std::string(p.append("trec_perf_" + comm + "_" + pidStr + ".bin"));
+  DEBUG(printf("data file: %s\n", g_dataPath->c_str()););
 
-  env = getenv(envInterval);
+  env = getenv(g_envInterval);
   if (env != nullptr) {
     int step = atoi(env);
     if (step <= 0) {
-      fprintf(stderr, "Invalid interval %s, defaults to %d\n", env, interval);
+      fprintf(stderr, "Invalid interval %s, defaults to %d\n", env, g_interval);
     } else {
-      interval = step;
+      g_interval = step;
     }
   }
 
@@ -290,11 +290,11 @@ void __trec_init() {
 
   initTimeIntervals();
   
-  funcCallCounter = new std::unordered_map<long, std::vector<long>>();
-  lock = new std::mutex();
-  shouldQuit  = new std::atomic_bool(false);
+  g_funcCallCounter = new std::unordered_map<long, std::vector<long>>();
+  g_lock = new std::mutex();
+  g_shouldQuit  = new std::atomic_bool(false);
   // spawn a thread for syncing data
-  flusher = new std::thread(flushData);
+  g_flusher = new std::thread(flushData);
 
   atexit(__trec_deinit);
 
@@ -332,15 +332,15 @@ inline static long currentTime() {
 }
 
 static void flushImpl() {
-  if (getpid() != pid) {
+  if (getpid() != g_pid) {
     // TODO write to a new file
     fprintf(stderr, "Program %s has forked, trec perf data is nor recorded in the child process\n", program_invocation_short_name);
     return;
   }
 
-  lock->lock();
+  g_lock->lock();
 
-  std::ofstream ofs(dataPath->c_str(), std::ios::out | std::ios::binary | std::ios::trunc);
+  std::ofstream ofs(g_dataPath->c_str(), std::ios::out | std::ios::binary | std::ios::trunc);
   ofs.write(g_cmdline->c_str(), g_cmdline->length());
   // End of Text: delimitor
   ofs.put('\3');
@@ -349,11 +349,11 @@ static void flushImpl() {
   ofs.write(g_pwd->c_str(), g_pwd->length());
   ofs.put('\3');
   // write mode
-  ofs.write((const char *)&mode, sizeof(mode));
+  ofs.write((const char *)&g_mode, sizeof(g_mode));
   // write vector length
-  ofs.write((const char *)&defaultNumOfBuckets, sizeof(defaultNumOfBuckets));
+  ofs.write((const char *)&g_defaultNumOfBuckets, sizeof(g_defaultNumOfBuckets));
   // write data
-  for (auto & kv : *funcCallCounter) {
+  for (auto & kv : *g_funcCallCounter) {
     // fid
     ofs.write((const char *)&kv.first, sizeof(kv.first));
     for (auto & c : kv.second) {
@@ -363,12 +363,12 @@ static void flushImpl() {
   }
 
   if (!ofs.good()) {
-    fprintf(stderr, "Error flushing data to %s\n", dataPath->c_str());
+    fprintf(stderr, "Error flushing data to %s\n", g_dataPath->c_str());
     abort();
   }
   ofs.close();
 
-  lock->unlock();
+  g_lock->unlock();
 }
 
 static void flushData() {
@@ -376,7 +376,7 @@ static void flushData() {
   while (true) {
     // Sleep for 1s, but check for quit signal frequently.
     for (int i = 0; i < 20; i++) {
-      if (*shouldQuit) {
+      if (*g_shouldQuit) {
         flushImpl();
         DEBUG(printf("flusher quit\n"););
         return;
@@ -390,16 +390,16 @@ static void flushData() {
 
 static void initTimeIntervals() {
   int start = 0;
-  for (int i = 0; i < defaultNumOfBuckets; i++) {
-    timeIntervals[i] = start;
-    start += interval;
+  for (int i = 0; i < g_defaultNumOfBuckets; i++) {
+    g_timeIntervals[i] = start;
+    start += g_interval;
   }
 }
 
 inline static int computeIndexFromDelta(unsigned int delta) {
   int m;
   int left = 0;
-  int right = defaultNumOfBuckets - 1;
+  int right = g_defaultNumOfBuckets - 1;
 
   // binary search
   while (left <= right) {
@@ -409,15 +409,15 @@ inline static int computeIndexFromDelta(unsigned int delta) {
     }
 
     m = (left + right) / 2;
-    if (delta < timeIntervals[m - 1]) {
+    if (delta < g_timeIntervals[m - 1]) {
       // move left
       right = m - 1;
-    } else if (timeIntervals[m + 1] <= delta) {
+    } else if (g_timeIntervals[m + 1] <= delta) {
       // move right
       left = m + 1;
     } else {
       // v[m - 1] <= delta <= v[m + 1]
-      if (delta >= timeIntervals[m]) {
+      if (delta >= g_timeIntervals[m]) {
         return m;
       } else {
         return m - 1;
