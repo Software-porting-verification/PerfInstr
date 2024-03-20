@@ -120,14 +120,14 @@ struct perfFD {
     // create per-thread perf timer
     fd = syscall(SYS_perf_event_open, &pe, tid, cpu, -1, 0);
     if (fd == -1) {
-      fprintf(stderr, "Failed to open perf event: %s\n", strerror(errno));
+      fprintf(stderr, "[perfRT] Failed to open perf event: %s\n", strerror(errno));
       abort();
     }
 
     ioctl(fd, PERF_EVENT_IOC_RESET, 0);
     ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
 
-    DEBUG(printf("created perf fd %d for tid %d \n", fd, tid););
+    DEBUG(printf("[perfRT] created perf fd %d for tid %d \n", fd, tid););
   }
 
   ~perfFD() {
@@ -153,7 +153,7 @@ static thread_local std::unordered_map<long, long> TL_lastCallTimePerFunc;
 void __trec_perf_func_enter(long fid) {
   if (g_mode == NONE) return;
 
-  DEBUG(printf("enter %ld\n", fid););
+  DEBUG(printf("[perfRT] enter %ld\n", fid););
 
   long t = currentTime();
   TL_lastCallTimePerFunc[fid] = t;
@@ -176,7 +176,7 @@ void __trec_perf_func_exit(long fid) {
 
   auto & bucket = g_funcCallCounter->at(fid).at(i);
   bucket++;
-  DEBUG(printf("exit %ld delta %ld\n", fid, delta););
+  DEBUG(printf("[perfRT] exit %ld delta %ld\n", fid, delta););
 
   g_lock->unlock();
 }
@@ -219,19 +219,19 @@ void __trec_init() {
     g_mode = INSN;
   } else {
     fprintf(stderr, 
-      "Unknown value for env %s: %s, available ones: time, cycle, insn\n", g_envMode, env);
+      "[perfRT] Unknown value for env %s: %s, available ones: time, cycle, insn\n", g_envMode, env);
     abort();
   }
   
   env = getenv(g_envDataPath);
   if (env == nullptr) {
-    fprintf(stderr, "env %s not set!\n", g_envDataPath);
+    fprintf(stderr, "[perfRT] env %s not set!\n", g_envDataPath);
     abort();
   }
   auto p = std::filesystem::path(env);
   if (std::filesystem::exists(p)) {
     if (!std::filesystem::is_directory(p)) {
-      fprintf(stderr, "%s is not a directory!\n", env);
+      fprintf(stderr, "[perfRT] %s is not a directory!\n", env);
       abort();
     }
   } else {
@@ -243,13 +243,13 @@ void __trec_init() {
   std::string comm(program_invocation_short_name);
   std::string pidStr(std::to_string(g_pid));
   g_dataPath = new std::string(p.append("trec_perf_" + comm + "_" + pidStr + ".bin"));
-  DEBUG(printf("data file: %s\n", g_dataPath->c_str()););
+  DEBUG(printf("[perfRT] data file: %s\n", g_dataPath->c_str()););
 
   env = getenv(g_envInterval);
   if (env != nullptr) {
     int step = atoi(env);
     if (step <= 0) {
-      fprintf(stderr, "Invalid interval %s, defaults to %d\n", env, g_interval);
+      fprintf(stderr, "[perfRT] Invalid interval %s, defaults to %d\n", env, g_interval);
     } else {
       g_interval = step;
     }
@@ -258,7 +258,7 @@ void __trec_init() {
   // read program name and cmd args
   std::ifstream file("/proc/self/cmdline");
   if (file.bad()) {
-    fprintf(stderr, "Fail to read /proc/self/cmdline\n");
+    fprintf(stderr, "[perfRT] Fail to read /proc/self/cmdline\n");
     abort();
   }
   std::stringstream ss;
@@ -273,7 +273,7 @@ void __trec_init() {
   memset(&buf, '\0', sizeof(buf));
   // read program binary path
   if (readlink("/proc/self/exe", buf, sizeof(buf)) < 0) {
-      fprintf(stderr, "Fail to read /proc/self/exe\n");
+      fprintf(stderr, "[perfRT] Fail to read /proc/self/exe\n");
       abort();
   }
   g_binPath = new std::string(buf);
@@ -281,7 +281,7 @@ void __trec_init() {
   // read the initial working direcrory
   memset(&buf, '\0', sizeof(buf));
   if (readlink("/proc/self/cwd", buf, sizeof(buf)) < 0) {
-      fprintf(stderr, "Fail to read /proc/self/cwd\n");
+      fprintf(stderr, "[perfRT] Fail to read /proc/self/cwd\n");
       abort();
   }
   g_pwd = new std::string(buf);
@@ -334,7 +334,7 @@ inline static long currentTime() {
 static void flushImpl() {
   if (getpid() != g_pid) {
     // TODO write to a new file
-    fprintf(stderr, "Program %s has forked, trec perf data is nor recorded in the child process\n", program_invocation_short_name);
+    fprintf(stderr, "[perfRT] Program %s has forked, trec perf data is nor recorded in the child process\n", program_invocation_short_name);
     return;
   }
 
@@ -363,7 +363,7 @@ static void flushImpl() {
   }
 
   if (!ofs.good()) {
-    fprintf(stderr, "Error flushing data to %s\n", g_dataPath->c_str());
+    fprintf(stderr, "[perfRT] Error flushing data to %s\n", g_dataPath->c_str());
     abort();
   }
   ofs.close();
@@ -372,13 +372,13 @@ static void flushImpl() {
 }
 
 static void flushData() {
-  DEBUG(printf("flusher started\n"););
+  DEBUG(printf("[perfRT] flusher started\n"););
   while (true) {
     // Sleep for 1s, but check for quit signal frequently.
     for (int i = 0; i < 20; i++) {
       if (*g_shouldQuit) {
         flushImpl();
-        DEBUG(printf("flusher quit\n"););
+        DEBUG(printf("[perfRT] flusher quit\n"););
         return;
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(50));
