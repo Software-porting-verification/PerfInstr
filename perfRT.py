@@ -63,12 +63,43 @@ def outputExcel():
 def outputText(data, interval):
     pass
 
-def readData(data_path):
+def readData(data_path: str) -> dict[int, list[int]]:
     with open(data_path, mode='rb') as file:
         bs = file.read()
+        # cmdline
+        rawCmd = []
+        i = 0
+        while not bs[i] == 3:
+            c = struct.unpack('<c', bs[i:i+1])[0]
+            # note that '\0' exists
+            rawCmd.append(c.decode('utf-8'))
+            i += 1
+        i += 1
+        # exe path
+        rawExe = []
+        while not bs[i] == 3:
+            # print(i)
+            c = struct.unpack('<c', bs[i:i+1])[0]
+            rawExe.append(c.decode('utf-8'))
+            i += 1
+        i += 1
+        # working dir
+        rawPwd = []
+        while not bs[i] == 3:
+            # print(i)
+            c = struct.unpack('<c', bs[i:i+1])[0]
+            rawPwd.append(c.decode('utf-8'))
+            i += 1
+        i += 1
+
+        cmd = "".join(rawCmd)
+        exe = "".join(rawExe)
+        pwd = "".join(rawPwd)
+        exeParams = cmd + exe + pwd
+
         # <: little endian
-        mode   = struct.unpack('<b', bs[0:1])[0]
-        length = struct.unpack('<i', bs[1:5])[0]
+        mode   = struct.unpack('<b', bs[i   : i+1])[0]
+        length = struct.unpack('<i', bs[i+1 : i+5])[0]
         # TODO interval size
         print(f"mode: {mode}, bucket length: {length}")
 
@@ -77,8 +108,9 @@ def readData(data_path):
         num_func  = (len(bs) - (1 + 4)) // len_fid_buckets
         print(f"Number of functions: {num_func}")
 
+        # data : fid -> bucket
         data = {}
-        start = 5
+        start = i + 5
         for i in range(num_func):
             fid = struct.unpack('<Q', bs[start:start + 8])[0]
             start += 8
@@ -92,20 +124,24 @@ def readData(data_path):
         return data
 
 # add time interval
-def cleanseData(data, interval):
+def cleanseData(data: dict[int, list[int]], interval: int) -> dict[int, dict[int, int]]:
     res = {}
-    for k, v in data.items():
+    for fid, vec in data.items():
         times = {}
         start = 0
-        for c in v:
+        for c in vec:
             if c > 0:
                 times[start] = c
             
             start += interval
 
-        res[k] = times
+        res[fid] = times
 
     return res
+
+###
+### start of program
+###
 
 args = sys.argv
 
