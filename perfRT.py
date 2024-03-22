@@ -1,8 +1,21 @@
-#! /bin/python
+#! /usr/bin/env python3
+
+####################################################
+#
+#
+# cross-archtecture performance analysis tool 
+#
+# Author: Mao Yifu, maoif@ios.ac.cn
+#
+#
+####################################################
+
+
 
 import os
 import sys
 import struct
+import argparse
 # import numpy as np
 # import matplotlib.pyplot as plt
 # import seaborn as sns
@@ -16,12 +29,59 @@ from contextlib import closing
 # dump as excel?
 # draw diagram
 
+
+class PerfData:
+    # dict[fid, list[counts]]
+    rawData: dict[int, list[int]] 
+    # dict[fid, dict[interval, counts]]
+    data: dict[int, dict[int, int]]
+    mode: int
+    numOfFuncs: int
+
+
+    def __init__(self, dataPath: str, cmd: str, exe: str, pwd: str, interval: int):
+        # path of this data file
+        self.dataPath = dataPath
+        # cmdline and arguments
+        self.cmd = cmd
+        # path of the testcase executable
+        self.exe = exe
+        # path the the testcase's working directory
+        self.pwd = pwd
+        # time interval on the frequency vector
+        self.interval = interval
+        self.rawData = {}
+        self.data = {}
+
+
+    def getExeParams(self):
+        return self.cmd + self.exe + self.pwd
+
+
+    def addRawData(self, fid, vec):
+        """
+        Add raw frequency vector for a function and make a dict
+        for frequency values > 0.
+        """
+        times = {}
+        start = 0
+        for c in vec:
+            if c > 0:
+                times[start] = c
+
+        start += self.interval
+        self.rawData[fid] = vec
+        self.data[fid] = times
+
+
+
 def decodeFid(fid):
     dbID   = (fid >> 48) & 0xffff
     fileID = (fid >> 24) & 0xffffff
     funcID = fid & 0xffffff
 
     return dbID, funcID, fileID
+
 
 def checkDB(path):
     if os.path.exists(path):
@@ -31,6 +91,7 @@ def checkDB(path):
     else:
         print(f"Database file not found: {path}")
         exit(-1)
+
 
 def queryFuncName(fid, debuginfo_dir):
     dbID, funcID, _ = decodeFid(fid)
@@ -43,6 +104,7 @@ def queryFuncName(fid, debuginfo_dir):
             rows = cursor.execute("select NAME from FUNCNAMES where ID=?", (funcID,)).fetchall()
             return rows[0][0]
 
+
 def queryFileName(fid, debuginfo_dir):
     dbID, _, fileID = decodeFid(fid)
     dbName = f"{debuginfo_dir}/debuginfo{dbID}.db"
@@ -54,16 +116,20 @@ def queryFileName(fid, debuginfo_dir):
             rows = cursor.execute("select NAME from FILENAMES where ID=?", (fileID,)).fetchall()
             return rows[0][0]
 
+
 def outputDiagram():
     pass
+
 
 def outputExcel():
     pass
 
+
 def outputText(data, interval):
     pass
 
-def readData(data_path: str) -> dict[int, list[int]]:
+
+def readData(data_path: str) -> PerfData:
     with open(data_path, mode='rb') as file:
         bs = file.read()
         # cmdline
@@ -96,17 +162,23 @@ def readData(data_path: str) -> dict[int, list[int]]:
         exe = "".join(rawExe)
         pwd = "".join(rawPwd)
         exeParams = cmd + exe + pwd
+        # print(f"cmd: {cmd}, exe: {exe}, pwd: {pwd}")
+        # print(f"exeParams: {exeParams}")
 
         # <: little endian
         mode   = struct.unpack('<b', bs[i   : i+1])[0]
         length = struct.unpack('<i', bs[i+1 : i+5])[0]
-        # TODO interval size
-        print(f"mode: {mode}, bucket length: {length}")
+        # print(f"mode: {mode}, bucket length: {length}")
+
+        # TODO flexible interval size
+        perfData = PerfData(data_path, cmd, exe, pwd, 5000)
+        perfData.mode = mode
+        perfData.numOfFuncs = length
 
         # read each function's counts
         len_fid_buckets = (length + 1) * 8
         num_func  = (len(bs) - (1 + 4)) // len_fid_buckets
-        print(f"Number of functions: {num_func}")
+        # print(f"Number of functions: {num_func}")
 
         # data : fid -> bucket
         data = {}
@@ -114,75 +186,111 @@ def readData(data_path: str) -> dict[int, list[int]]:
         for i in range(num_func):
             fid = struct.unpack('<Q', bs[start:start + 8])[0]
             start += 8
-            buckets = []
+            vec = []
             for bucket_i in range(length):
-                buckets.append(struct.unpack('<q', bs[start:start + 8])[0])
+                vec.append(struct.unpack('<q', bs[start:start + 8])[0])
                 start += 8
 
-            data[fid] = buckets
+            perfData.addRawData(fid, vec)
+        
+        return perfData
 
-        return data
 
-# add time interval
-def cleanseData(data: dict[int, list[int]], interval: int) -> dict[int, dict[int, int]]:
-    res = {}
-    for fid, vec in data.items():
-        times = {}
-        start = 0
-        for c in vec:
-            if c > 0:
-                times[start] = c
-            
-            start += interval
+def checkDir(path: str):
+    if os.path.exists(path):
+        if not os.path.isdir(path):
+            print(f"Not a dir: {path}")
+            exit(-3)
+        
+        if os.listdir(path) == []:
+            print(f"Dir {path} is empty")
+            exit(-3)
+    else:
+        print(f"Dir not found: {path}")
+        exit(-4)
 
-        res[fid] = times
 
-    return res
+def checkFile(path: str):
+    if os.path.exists(path):
+        if not os.path.isfile(path):
+            print(f"Not a file: {path}")
+            exit(-3)
+    else:
+        print(f"Dir not found: {path}")
+        exit(-4)
 
 ###
 ### start of program
 ###
 
-args = sys.argv
+parser = argparse.ArgumentParser(
+    prog='perf-analyzer',
+    description='Analyze program performance across architectures.')
+parser.add_argument('dataDir1', type=str, help='directory of perf data and debuginfo from the 1st archtecture')
+parser.add_argument('dataDir2', type=str, help='directory of perf data and debuginfo from the 2nd archtecture')
 
-if len(args) < 4:
-    print(f"Invalid number of arguments: {args}")
-    print("Args: <mode> <debuginfo/path> <data_file>")
-    print("      <mode> := txt | pic | xls")
-    exit(-1)
+args = parser.parse_args()
 
-mode = args[1]
-debuginfo_dir = args[2]
-data_path = args[3]
-# TODO database path
+# find matching data for analysis
 
-if mode not in ["txt", "pic", "xls"]:
-    print(f"Invalid command: {mode}")
-    exit(-2)
+dataDir1 = args.dataDir1 + "/perf_data"
+dataDir2 = args.dataDir2 + "/perf_data"
+dbDir1   = args.dataDir1 + "/debuginfo"
+dbDir2   = args.dataDir2 + "/debuginfo"
 
-if os.path.exists(debuginfo_dir):
-    if not os.path.isdir(debuginfo_dir):
-        print(f"Not a file: {debuginfo_dir}")
-        exit(-3)
-else:
-    print(f"Dir not found: {debuginfo_dir}")
-    exit(-4)
+checkDir(dataDir1)
+checkDir(dataDir1)
+checkDir(dbDir1)
+checkDir(dbDir2)
 
-if os.path.exists(data_path):
-    if not os.path.isfile(data_path):
-        print(f"Not a file: {data_path}")
-        exit(-3)
-else:
-    print(f"File not found: {data_path}")
-    exit(-4)
+# look for trec_perf_*
 
-# TODO more flexible interval
-interval = 5000
-data = cleanseData(readData(data_path), interval)
+files1 = os.listdir(dataDir1)
+files2 = os.listdir(dataDir2)
+# name must be aligned with that in perfRT
+isPerfData = lambda x: x.startswith('trec_perf_')
+joinDatDir = lambda dir: lambda x: os.path.join(dir, x)
+perfDataFiles1 = list(map(joinDatDir(dataDir1), filter(isPerfData, files1)))
+perfDataFiles2 = list(map(joinDatDir(dataDir2), filter(isPerfData, files2)))
 
-for k, v in data.items():
-    print(f"fid: {k} {decodeFid(k)}")
-    print(f"function: {queryFuncName(k, debuginfo_dir)}\nfile: {queryFileName(k, debuginfo_dir)}")
-    for t, c in v.items():
-        print(f"\t{t} - {t + interval}: {c}")
+if perfDataFiles1 == []:
+    print(f"{dataDir1} has no data files")
+    exit(0)
+if perfDataFiles1 == []:
+    print(f"{dataDir2} has no data files")
+    exit(0)
 
+perfDatas1 = list(map(readData, perfDataFiles1))
+perfDatas2 = list(map(readData, perfDataFiles2))
+
+# start to find matches
+
+list1 = perfDatas1.copy()
+list2 = perfDatas2.copy()
+
+matches: list[tuple[PerfData, PerfData]] = []
+i = 0
+while True:
+    if i == len(list1):
+        # by now all pairs have been compared
+        break
+
+    pd1 = list1[i]
+    foundMatch = False
+    for pd2 in list2:
+        if pd1.cmd == pd2.cmd:
+            matches.append((pd1, pd2))
+            list1.remove(pd1)
+            list2.remove(pd2)
+            foundMatch = True
+            break
+    
+    # pd1 has no matching pd2, go to the next
+    if not foundMatch:
+        i += 1
+    
+
+for kv in matches:
+    print(f"1st: {kv[0].cmd}")
+    print(f"2nd: {kv[1].cmd}")
+    print()
