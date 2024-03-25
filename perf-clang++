@@ -1,7 +1,9 @@
 #!/bin/bash
 
-CLANG=/bin/clang++
-PASS_PLUGIN=/lib/PerfInstrPass.so
+# You may have to adjust the following two paths.
+CLANG=/usr/bin/clang++
+PASS_PLUGIN=/usr/lib/PerfInstrPass.so
+
 FLAGS="-g -fno-discard-value-names -lperfRT -fpass-plugin=$PASS_PLUGIN -fuse-ld=lld"
 
-$CLANG $FLAGS $@
+$CLANG $FLAGS "$@" -Wno-error=unused-command-line-argument
