@@ -29,6 +29,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <errno.h>
+#include <signal.h>
 #include <linux/perf_event.h>    /* Definition of PERF_* constants */
 #include <linux/hw_breakpoint.h> /* Definition of HW_* constants */
 #include <sys/syscall.h>         /* Definition of SYS_* constants */
@@ -161,6 +162,14 @@ void __trec_perf_func_enter(long fid) {
 
 void __trec_perf_func_exit(long fid) {
   if (g_mode == NONE) return;
+
+  // FIXME sometimes the key does not exist when 
+  // __trec_perf_func_enter() is actually run.
+  // E.g., sed when run as `sed '~1d'`
+  // Maybe it's because another function is registered by `aexit()`?
+  if (!TL_lastCallTimePerFunc.contains(fid)) {
+    return;
+  }
 
   long t   = currentTime();
   long val = TL_lastCallTimePerFunc.at(fid);
@@ -362,17 +371,20 @@ static void flushImpl() {
     }
   }
 
-  if (!ofs.good()) {
-    fprintf(stderr, "[perfRT] Error flushing data to %s\n", g_dataPath->c_str());
-    abort();
-  }
   ofs.close();
 
   g_lock->unlock();
 }
 
 static void flushData() {
+  // Shouldn't handle signals on behalf of normal threads.
+  sigset_t set;
+  sigemptyset(&set);
+  sigfillset(&set);
+  pthread_sigmask (SIG_BLOCK, &set, NULL);
+
   DEBUG(printf("[perfRT] flusher started\n"););
+
   while (true) {
     // Sleep for 1s, but check for quit signal frequently.
     for (int i = 0; i < 20; i++) {
