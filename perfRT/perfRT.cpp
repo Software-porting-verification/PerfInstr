@@ -51,6 +51,7 @@ static void flushImpl();
 static void flushData();
 static void initTimeIntervals();
 static int  computeIndexFromDelta(unsigned int);
+std::unordered_map<long, long> * getLastCallTimeMap();
 
 enum Mode : unsigned char {
   TIME  = 0,
@@ -142,8 +143,18 @@ struct perfFD {
 static thread_local struct perfFD tl_perffd;
 #endif
 
+// Note: the thread-local TL_lastCallTimePerFunc may be destructed if the thread is terminating,
+// leading to segfault.
+// This is usually because there are other functions registered via `atexit()`.
+// When a thread is exiting, glibc will call the destructors of those thread-local variables first before 
+// calling functions registered via `atexit()`, hence invalidating the data.
+// So do not use thread-local data.
+
 // per thread, fid -> time
-static thread_local std::unordered_map<long, long> TL_lastCallTimePerFunc;
+// static thread_local std::unordered_map<long, long> TL_lastCallTimePerFunc;
+
+static std::unordered_map<pid_t, std::unordered_map<long, long> *> * g_lastCallTimePerFuncPerThread;
+static std::mutex  * g_lastCallTimeMapLock;
 
 //===----------------------------------------------------------------------===//
 //
@@ -157,7 +168,8 @@ void __trec_perf_func_enter(long fid) {
   DEBUG(printf("[perfRT] enter %ld\n", fid););
 
   long t = currentTime();
-  TL_lastCallTimePerFunc[fid] = t;
+  auto map = getLastCallTimeMap();
+  (*map)[fid] = t;
 }
 
 void __trec_perf_func_exit(long fid) {
@@ -167,12 +179,10 @@ void __trec_perf_func_exit(long fid) {
   // __trec_perf_func_enter() is actually run.
   // E.g., sed when run as `sed '~1d'`
   // Maybe it's because another function is registered by `aexit()`?
-  if (!TL_lastCallTimePerFunc.contains(fid)) {
-    return;
-  }
 
   long t   = currentTime();
-  long val = TL_lastCallTimePerFunc.at(fid);
+  auto map = getLastCallTimeMap();
+  long val = map->at(fid);
   long delta = t - val;
   int i = computeIndexFromDelta((unsigned int) delta);
   
@@ -206,6 +216,11 @@ void __trec_deinit() {
   delete g_binPath;
   delete g_cmdline;
   delete g_pwd;
+  for (auto kv : *g_lastCallTimePerFuncPerThread) {
+    delete kv.second;
+  }
+  delete g_lastCallTimePerFuncPerThread;
+  delete g_lastCallTimeMapLock;
 }
 
 void __trec_init() {
@@ -301,6 +316,8 @@ void __trec_init() {
   
   g_funcCallCounter = new std::unordered_map<long, std::vector<long>>();
   g_lock = new std::mutex();
+  g_lastCallTimePerFuncPerThread = new std::unordered_map<pid_t, std::unordered_map<long, long> *>();
+  g_lastCallTimeMapLock = new std::mutex();
   g_shouldQuit  = new std::atomic_bool(false);
   // spawn a thread for syncing data
   g_flusher = new std::thread(flushData);
@@ -315,6 +332,23 @@ void __trec_init() {
 // Internals.
 //
 //===----------------------------------------------------------------------===//
+
+std::unordered_map<long, long> * getLastCallTimeMap() {
+  g_lastCallTimeMapLock->lock();
+
+  std::unordered_map<long, long> * theMap;
+  pid_t tid = gettid();
+  if (!g_lastCallTimePerFuncPerThread->contains(tid)) {
+    theMap = new std::unordered_map<long, long>();
+    (*g_lastCallTimePerFuncPerThread)[tid] = theMap;
+  } else {
+    theMap = g_lastCallTimePerFuncPerThread->at(tid);
+  }
+
+  g_lastCallTimeMapLock->unlock();
+
+  return theMap;
+}
 
 inline static long currentTimeClock() {
   struct timespec ts;
