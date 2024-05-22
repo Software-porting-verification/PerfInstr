@@ -183,57 +183,63 @@ def convert_dbs(dbs: list[str], raws: list[str]) -> list[PerfData]:
     
     return res
 
+
+def main(dir1: str, dir2: str):
+    # input: perf_trec_${package}_${arch}/
+    # look for: perf_trec_${package}_${arch}/perf_data/sqlite
+    # and     : perf_trec_${package}_${arch}/perf_data/raw
+
+    dataDir1 = dir1 + "/perf_data"
+    dataDir2 = dir2 + "/perf_data"
+
+    sqliteDir1 = dataDir1 + "/sqlite"
+    sqliteDir2 = dataDir2 + "/sqlite"
+
+    rawTextDir1 = dataDir1 + "/raw"
+    rawTextDir2 = dataDir2 + "/raw"
+
+    checkDir(sqliteDir1)
+    checkDir(sqliteDir2)
+    checkDir(rawTextDir1)
+    checkDir(rawTextDir2)
+
+    isPerfDB = lambda x: 'perf.data' in x and x.endswith('.db')
+    isRaw    = lambda x: 'perf.data' in x and x.endswith('.raw')
+    concatPath = lambda x: lambda y: os.path.join(x, y)
+
+    perfDBs1 = list(map(concatPath(sqliteDir1), filter(isPerfDB, os.listdir(sqliteDir1))))
+    perfDBs2 = list(map(concatPath(sqliteDir2), filter(isPerfDB, os.listdir(sqliteDir2))))
+
+    raws1 = list(map(concatPath(rawTextDir1), filter(isRaw, os.listdir(rawTextDir1))))
+    raws2 = list(map(concatPath(rawTextDir2), filter(isRaw, os.listdir(rawTextDir2))))
+
+    if perfDBs1 == [] or perfDBs2 == [] or raws1 == [] or raws2 == []:
+        print('data files are incomplete')
+        exit(-1)
+
+    perfDatas1 = convert_dbs(perfDBs1, raws1)
+    perfDatas2 = convert_dbs(perfDBs2, raws2)
+
+    matches: list[tuple[PerfData, PerfData]] = find_matches(perfDatas1, perfDatas2)
+
+    for kv in matches:
+        analyze(kv[0], kv[1])
+
+
 ###
 ### start of program
 ###
 
-parser = argparse.ArgumentParser(
-    prog='perf-convert',
-    description='Convert perf.data for performance analysis.')
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        prog='perf-data',
+        description='Convert perf.data and do performance analysis.')
 
-parser.add_argument('dataDir1', type=str, help='directory of perf data from the 1st architecture')
-parser.add_argument('dataDir2', type=str, help='directory of perf data from the 2nd architecture')
+    parser.add_argument('dataDir1', type=str, help='directory of perf data from the 1st architecture')
+    parser.add_argument('dataDir2', type=str, help='directory of perf data from the 2nd architecture')
 
-args = parser.parse_args()
+    args = parser.parse_args()
+    main(args.dataDir1, args.dataDir2)
 
-# input: perf_trec_${package}_${arch}/
-# look for: perf_trec_${package}_${arch}/perf_data/sqlite
-# and     : perf_trec_${package}_${arch}/perf_data/raw
-
-dataDir1 = args.dataDir1 + "/perf_data"
-dataDir2 = args.dataDir2 + "/perf_data"
-
-sqliteDir1 = dataDir1 + "/sqlite"
-sqliteDir2 = dataDir2 + "/sqlite"
-
-rawTextDir1 = dataDir1 + "/raw"
-rawTextDir2 = dataDir2 + "/raw"
-
-checkDir(sqliteDir1)
-checkDir(sqliteDir2)
-checkDir(rawTextDir1)
-checkDir(rawTextDir2)
-
-isPerfDB = lambda x: 'perf.data' in x and x.endswith('.db')
-isRaw    = lambda x: 'perf.data' in x and x.endswith('.raw')
-concatPath = lambda x: lambda y: os.path.join(x, y)
-
-perfDBs1 = list(map(concatPath(sqliteDir1), filter(isPerfDB, os.listdir(sqliteDir1))))
-perfDBs2 = list(map(concatPath(sqliteDir2), filter(isPerfDB, os.listdir(sqliteDir2))))
-
-raws1 = list(map(concatPath(rawTextDir1), filter(isRaw, os.listdir(rawTextDir1))))
-raws2 = list(map(concatPath(rawTextDir2), filter(isRaw, os.listdir(rawTextDir2))))
-
-if perfDBs1 == [] or perfDBs2 == [] or raws1 == [] or raws2 == []:
-    print('data files are incomplete')
-    exit(-1)
-
-perfDatas1 = convert_dbs(perfDBs1, raws1)
-perfDatas2 = convert_dbs(perfDBs2, raws2)
-
-matches: list[tuple[PerfData, PerfData]] = find_matches(perfDatas1, perfDatas2)
-
-for kv in matches:
-    analyze(kv[0], kv[1])
 
 # TODO use -F 9999 (sample ~10 times per 1ms)

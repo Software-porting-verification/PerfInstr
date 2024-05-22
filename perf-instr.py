@@ -110,58 +110,60 @@ def readData(data_path: str) -> PerfData:
         return perfData
 
 
+def main(dir1: str, dir2: str):
+    dataDir1 = dir1 + "/perf_data"
+    dataDir2 = dir2 + "/perf_data"
+    dbDir1   = dir1 + "/debuginfo"
+    dbDir2   = dir2 + "/debuginfo"
+
+    checkDir(dataDir1)
+    checkDir(dataDir1)
+    checkDir(dbDir1)
+    checkDir(dbDir2)
+
+    # look for trec_perf_*
+
+    files1 = os.listdir(dataDir1)
+    files2 = os.listdir(dataDir2)
+    # name must be aligned with that in perfRT
+    isPerfData = lambda x: x.startswith('trec_perf_')
+    joinDatDir = lambda dir: lambda x: os.path.join(dir, x)
+    perfDataFiles1 = list(map(joinDatDir(dataDir1), filter(isPerfData, files1)))
+    perfDataFiles2 = list(map(joinDatDir(dataDir2), filter(isPerfData, files2)))
+
+    if perfDataFiles1 == []:
+        print(f"{dataDir1} has no data files")
+        exit(0)
+    if perfDataFiles1 == []:
+        print(f"{dataDir2} has no data files")
+        exit(0)
+
+    perfDatas1 = list(map(readData, perfDataFiles1))
+    perfDatas2 = list(map(readData, perfDataFiles2))
+
+    for pd in perfDatas1:
+        pd.dbDir = dbDir1
+
+    for pd in perfDatas2:
+        pd.dbDir = dbDir2
+
+    # start to find matches
+    matches: list[tuple[PerfData, PerfData]] = find_matches(perfDatas1, perfDatas2)
+
+    for kv in matches:
+        analyze(kv[0], kv[1])
+
+
 ###
 ### start of program
 ###
 
-parser = argparse.ArgumentParser(
-    prog='perf-analyzer',
-    description='Analyze program performance across architectures.')
-parser.add_argument('dataDir1', type=str, help='directory of perf data and debuginfo from the 1st archtecture')
-parser.add_argument('dataDir2', type=str, help='directory of perf data and debuginfo from the 2nd archtecture')
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        prog='perf-instr',
+        description='Analyze program performance across architectures.')
+    parser.add_argument('dataDir1', type=str, help='directory of perf data and debuginfo from the 1st archtecture')
+    parser.add_argument('dataDir2', type=str, help='directory of perf data and debuginfo from the 2nd archtecture')
 
-args = parser.parse_args()
-
-# find matching data for analysis
-
-dataDir1 = args.dataDir1 + "/perf_data"
-dataDir2 = args.dataDir2 + "/perf_data"
-dbDir1   = args.dataDir1 + "/debuginfo"
-dbDir2   = args.dataDir2 + "/debuginfo"
-
-checkDir(dataDir1)
-checkDir(dataDir1)
-checkDir(dbDir1)
-checkDir(dbDir2)
-
-# look for trec_perf_*
-
-files1 = os.listdir(dataDir1)
-files2 = os.listdir(dataDir2)
-# name must be aligned with that in perfRT
-isPerfData = lambda x: x.startswith('trec_perf_')
-joinDatDir = lambda dir: lambda x: os.path.join(dir, x)
-perfDataFiles1 = list(map(joinDatDir(dataDir1), filter(isPerfData, files1)))
-perfDataFiles2 = list(map(joinDatDir(dataDir2), filter(isPerfData, files2)))
-
-if perfDataFiles1 == []:
-    print(f"{dataDir1} has no data files")
-    exit(0)
-if perfDataFiles1 == []:
-    print(f"{dataDir2} has no data files")
-    exit(0)
-
-perfDatas1 = list(map(readData, perfDataFiles1))
-perfDatas2 = list(map(readData, perfDataFiles2))
-
-for pd in perfDatas1:
-    pd.dbDir = dbDir1
-
-for pd in perfDatas2:
-    pd.dbDir = dbDir2
-
-# start to find matches
-matches: list[tuple[PerfData, PerfData]] = find_matches(perfDatas1, perfDatas2)
-
-for kv in matches:
-    analyze(kv[0], kv[1])
+    args = parser.parse_args()
+    main(args.dataDir1, args.dataDir2)
