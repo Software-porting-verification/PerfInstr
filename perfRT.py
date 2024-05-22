@@ -21,6 +21,7 @@ import argparse
 # import seaborn as sns
 import sqlite3
 from contextlib import closing
+from perflib import *
 
 # Apply the default theme
 # sns.set_theme()
@@ -28,93 +29,6 @@ from contextlib import closing
 # dump as text
 # dump as excel?
 # draw diagram
-
-
-class PerfData:
-    # dict[fid, list[counts]]
-    rawData: dict[int, list[int]] 
-    # dict[fid, dict[interval, counts]]
-    data: dict[int, dict[int, int]]
-    mode: int
-    numOfFuncs: int
-
-
-    def __init__(self, dataPath: str, cmd: str, exe: str, pwd: str, interval: int):
-        # path of this data file
-        self.dataPath = dataPath
-        # cmdline and arguments
-        self.cmd = cmd
-        # path of the testcase executable
-        self.exe = exe
-        # path the the testcase's working directory
-        self.pwd = pwd
-        # time interval on the frequency vector
-        self.interval = interval
-        self.rawData = {}
-        self.data = {}
-
-
-    def getExeParams(self):
-        return self.cmd + self.exe + self.pwd
-
-
-    def addRawData(self, fid, vec):
-        """
-        Add raw frequency vector for a function and make a dict
-        for frequency values > 0.
-        """
-        times = {}
-        start = 0
-        for c in vec:
-            if c > 0:
-                times[start] = c
-
-        start += self.interval
-        self.rawData[fid] = vec
-        self.data[fid] = times
-
-
-
-def decodeFid(fid):
-    dbID   = (fid >> 48) & 0xffff
-    fileID = (fid >> 24) & 0xffffff
-    funcID = fid & 0xffffff
-
-    return dbID, funcID, fileID
-
-
-def checkDB(path):
-    if os.path.exists(path):
-        if not os.path.isfile(path):
-            print(f"Not a database file: {path}")
-            exit(-1)
-    else:
-        print(f"Database file not found: {path}")
-        exit(-1)
-
-
-def queryFuncName(fid, debuginfo_dir):
-    dbID, funcID, _ = decodeFid(fid)
-    dbName = f"{debuginfo_dir}/debuginfo{dbID}.db"
-    if dbID < 0:
-        print(f"Less than 0: {dbID}")
-    checkDB(dbName)
-    with closing(sqlite3.connect(dbName)) as connection:
-        with closing(connection.cursor()) as cursor:
-            rows = cursor.execute("select NAME from FUNCNAMES where ID=?", (funcID,)).fetchall()
-            return rows[0][0]
-
-
-def queryFileName(fid, debuginfo_dir):
-    dbID, _, fileID = decodeFid(fid)
-    dbName = f"{debuginfo_dir}/debuginfo{dbID}.db"
-    if dbID < 0:
-        print(f"Less than 0: {dbID}")
-    checkDB(dbName)
-    with closing(sqlite3.connect(dbName)) as connection:
-        with closing(connection.cursor()) as cursor:
-            rows = cursor.execute("select NAME from FILENAMES where ID=?", (fileID,)).fetchall()
-            return rows[0][0]
 
 
 def outputDiagram():
@@ -196,29 +110,6 @@ def readData(data_path: str) -> PerfData:
         return perfData
 
 
-def checkDir(path: str):
-    if os.path.exists(path):
-        if not os.path.isdir(path):
-            print(f"Not a dir: {path}")
-            exit(-3)
-        
-        if os.listdir(path) == []:
-            print(f"Dir {path} is empty")
-            exit(-3)
-    else:
-        print(f"Dir not found: {path}")
-        exit(-4)
-
-
-def checkFile(path: str):
-    if os.path.exists(path):
-        if not os.path.isfile(path):
-            print(f"Not a file: {path}")
-            exit(-3)
-    else:
-        print(f"Dir not found: {path}")
-        exit(-4)
-
 ###
 ### start of program
 ###
@@ -263,34 +154,14 @@ if perfDataFiles1 == []:
 perfDatas1 = list(map(readData, perfDataFiles1))
 perfDatas2 = list(map(readData, perfDataFiles2))
 
+for pd in perfDatas1:
+    pd.dbDir = dbDir1
+
+for pd in perfDatas2:
+    pd.dbDir = dbDir2
+
 # start to find matches
-
-list1 = perfDatas1.copy()
-list2 = perfDatas2.copy()
-
-matches: list[tuple[PerfData, PerfData]] = []
-i = 0
-while True:
-    if i == len(list1):
-        # by now all pairs have been compared
-        break
-
-    pd1 = list1[i]
-    foundMatch = False
-    for pd2 in list2:
-        if pd1.cmd == pd2.cmd:
-            matches.append((pd1, pd2))
-            list1.remove(pd1)
-            list2.remove(pd2)
-            foundMatch = True
-            break
-    
-    # pd1 has no matching pd2, go to the next
-    if not foundMatch:
-        i += 1
-    
+matches: list[tuple[PerfData, PerfData]] = find_matches(perfDatas1, perfDatas2)
 
 for kv in matches:
-    print(f"1st: {kv[0].cmd}")
-    print(f"2nd: {kv[1].cmd}")
-    print()
+    analyze(kv[0], kv[1])
