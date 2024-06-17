@@ -115,11 +115,15 @@ def main(dir1: str, dir2: str):
     dataDir2 = dir2 + "/perf_data"
     dbDir1   = dir1 + "/debuginfo"
     dbDir2   = dir2 + "/debuginfo"
+    srcDir1  = dir1 + "/src/"
+    srcDir2  = dir2 + "/src/"
 
     checkDir(dataDir1)
     checkDir(dataDir1)
     checkDir(dbDir1)
     checkDir(dbDir2)
+    checkDir(srcDir1)
+    checkDir(srcDir2)
 
     # look for trec_perf_*
 
@@ -143,15 +147,14 @@ def main(dir1: str, dir2: str):
 
     for pd in perfDatas1:
         pd.dbDir = dbDir1
+        pd.srcDir = srcDir1
 
     for pd in perfDatas2:
         pd.dbDir = dbDir2
+        pd.srcDir = srcDir2
 
-    # start to find matches
-    matches: list[tuple[PerfData, PerfData]] = find_matches(perfDatas1, perfDatas2)
-
-    for kv in matches:
-        analyze(kv[0], kv[1])
+    res = analyze_all(perfDatas1, perfDatas2)
+    generate_report(res)
 
 
 ###
@@ -164,6 +167,9 @@ if __name__ == '__main__':
         description='Analyze program performance across architectures.')
     parser.add_argument('dataDir1', type=str, help='directory of perf data and debuginfo from the 1st archtecture')
     parser.add_argument('dataDir2', type=str, help='directory of perf data and debuginfo from the 2nd archtecture')
+    parser.add_argument('-p', '--prefix', type=str, help='path prefix inside OBS environemnt')
 
     args = parser.parse_args()
+    if not args.prefix == None:
+        g_obs_prefix = args.prefix
     main(args.dataDir1, args.dataDir2)
