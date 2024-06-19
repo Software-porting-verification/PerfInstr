@@ -97,7 +97,7 @@ class PerfData:
                 return rows[0][0]
 
 
-class Result:
+class PerfResult:
     def __init__(self, func: str, pd1: PerfData, pd2: PerfData, dist1: list[float], dist2: list[float], fid1, fid2):
         self.func = func
         self.pd1  = pd1
@@ -190,7 +190,7 @@ def standardlization(arr1):
     return (arr1_np-arr1_np.min())/(arr1_np.max()-arr1_np.min())
 
 
-def analyze(pd1: PerfData, pd2: PerfData) -> list[Result]:
+def analyze(pd1: PerfData, pd2: PerfData) -> list[PerfResult]:
     # print('cmd:', pd1.cmd)
     pd1_data = {}
     pd2_data = {}
@@ -199,7 +199,7 @@ def analyze(pd1: PerfData, pd2: PerfData) -> list[Result]:
     pd1_fid: dict[str, fid] = {}
     pd2_fid: dict[str, fid] = {}
     # print(pd1.data)
-    results: list[Result] = []
+    results: list[PerfResult] = []
     
     for fid in pd1.data.keys():
         if len(pd1.data[fid])<=1:
@@ -242,12 +242,12 @@ def analyze(pd1: PerfData, pd2: PerfData) -> list[Result]:
             # statistics, pvalues = chisquare(income_t,income_c)
             statistics, pvalues = ks_2samp(income_t,income_c)
             if pvalues < statistics:
-                results.append(Result(func, pd1, pd2, income_t, income_c, pd1_fid[func], pd2_fid[func]))
+                results.append(PerfResult(func, pd1, pd2, income_t, income_c, pd1_fid[func], pd2_fid[func]))
 
     return results
 
 
-def choose_the_most_serious(results: list[Result]) -> Result:
+def choose_the_most_serious(results: list[PerfResult]) -> PerfResult:
     # TODO
     return results[0]
 
@@ -257,24 +257,24 @@ def analyze_all(perfDatas1: list[PerfData], perfDatas2: list[PerfData]):
     if matches == []:
         print('No match found')
         exit(0)
-    res: list[Result] = []
+    res: list[PerfResult] = []
     for kv in matches:
         res += analyze(kv[0], kv[1])
 
-    res_by_name: dict[str, list[Result]] = {}
+    res_by_name: dict[str, list[PerfResult]] = {}
     for r in res:
         if r.func in res_by_name.keys():
             res_by_name[r.func].append(r)
         else:
             res_by_name[r.func] = [r]
     # for results with the same func name, choose the most "serious" distritution
-    true_res: list[Result] = list(map(choose_the_most_serious, res_by_name.values()))
+    true_res: list[PerfResult] = list(map(choose_the_most_serious, res_by_name.values()))
 
     return true_res
 
 
 # TODO arr name should be arch
-def generate_plot(res: Result, path: str, arr1_name='', arr2_name=''):
+def generate_plot(res: PerfResult, path: str, arr1_name='', arr2_name=''):
     file = f'{path}/{res.func}'
     arr1 = res.dist1
     arr2 = res.dist2
@@ -313,7 +313,7 @@ def generate_plot(res: Result, path: str, arr1_name='', arr2_name=''):
     # plt.show()
 
 
-def fetch_source_code(res: Result) -> list[str]:
+def fetch_source_code(res: PerfResult) -> list[str]:
     # NAME from db is like: /home/abuild/rpmbuild/BUILD/aide-0.18.5/lex.yy.c
     # remove prefix and concat with srcDir
     bare_name = res.pd1.get_file_name(res.func, res.fid1).removeprefix(g_obs_prefix)
@@ -351,7 +351,7 @@ class ReportItem:
         self.pic = pic
 
 
-def generate_report(results: list[Result], path = '.'):
+def generate_report(results: list[PerfResult], path = '.'):
     # gen HTML
     # gen plot
     reports: ReportItem = []
