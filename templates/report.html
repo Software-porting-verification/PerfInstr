@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>性能测试报告</title>
+
+    <link rel="canonical" href="https://getbootstrap.com/docs/5.0/examples/features/">
+    <!-- Bootstrap core CSS -->
+    <link href="assets/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom styles for this template -->
+    <link href="features.css" rel="stylesheet">
+
+    <style>
+      code {
+        font-size: 120%;
+      }
+  </style>
+  </head>
+  <body>
+
+<main>
+  <h1 class="visually-hidden">性能测试报告</h1>
+
+  <div class="container px-4 py-5" id="featured-3">
+    <h2 class="pb-2 border-bottom">{{ perf_package }}</h2>
+  </div>
+
+  <div class="b-example-divider"></div>
+
+
+{% for item in reports %}
+
+  <div class="container px-4 py-5" id="featured-3">
+    <div class="row g-5 py-5 row-cols-2">
+
+      <div class="feature col">
+        <h3 style="font-family: Source Code Pro, Consolas, monospace">
+          {{ item.func }}
+        </h3>
+        <h6 style="font-family: Source Code Pro, Consolas, monospace">
+          {{ item.file }}
+        </h6>
+
+        <div>
+          <figure class="figure">
+            <img src="{{ item.pic }}" class="figure-img img-fluid rounded">
+<!--             <figcaption class="figure-caption">Some Caption</figcaption> -->
+          </figure>
+        </div>
+      </div>
+
+      <div class="feature col">
+        <div>
+        <div><pre><code style="font-size: 115%">
+{{ item.code }}
+        </code></pre></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="b-example-divider"></div>
+
+{% endfor %}
+
+
+</main>
+
+    <script src="assets/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>
