@@ -153,7 +153,7 @@ def main(dir1: str, dir2: str):
         pd.dbDir = dbDir2
         pd.srcDir = srcDir2
 
-    res = analyze_all(perfDatas1, perfDatas2)
+    res, good_res = analyze_all(perfDatas1, perfDatas2)
     generate_report(res)
 
 

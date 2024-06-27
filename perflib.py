@@ -200,6 +200,7 @@ def analyze(pd1: PerfData, pd2: PerfData) -> list[PerfResult]:
     pd2_fid: dict[str, fid] = {}
     # print(pd1.data)
     results: list[PerfResult] = []
+    good_ones = []
     
     for fid in pd1.data.keys():
         if len(pd1.data[fid])<=1:
@@ -232,7 +233,7 @@ def analyze(pd1: PerfData, pd2: PerfData) -> list[PerfResult]:
                 times2+=[k for i in range(0,v)]
             times2=standardlization(times2)
             paired_data2[func] = times2
-            
+
     for func in paired_data1.keys():
         if func in paired_data2:
             income_t=paired_data1[func]
@@ -243,8 +244,10 @@ def analyze(pd1: PerfData, pd2: PerfData) -> list[PerfResult]:
             statistics, pvalues = ks_2samp(income_t,income_c)
             if pvalues < statistics:
                 results.append(PerfResult(func, pd1, pd2, income_t, income_c, pd1_fid[func], pd2_fid[func]))
+            else:
+                good_ones.append(PerfResult(func, pd1, pd2, income_t, income_c, pd1_fid[func], pd2_fid[func]))
 
-    return results
+    return results, good_ones
 
 
 def choose_the_most_serious(results: list[PerfResult]) -> PerfResult:
@@ -258,19 +261,30 @@ def analyze_all(perfDatas1: list[PerfData], perfDatas2: list[PerfData]):
         print('No match found')
         exit(0)
     res: list[PerfResult] = []
+    goods_res: list[PerfResult] = []
     for kv in matches:
-        res += analyze(kv[0], kv[1])
+        bad, good = analyze(kv[0], kv[1])
+        res += bad
+        goods_res += good
 
     res_by_name: dict[str, list[PerfResult]] = {}
+    good_res_by_name: dict[str, list[PerfResult]] = {}
     for r in res:
         if r.func in res_by_name.keys():
             res_by_name[r.func].append(r)
         else:
             res_by_name[r.func] = [r]
+
+    for r in goods_res:
+        if r.func in good_res_by_name.keys():
+            good_res_by_name[r.func].append(r)
+        else:
+            good_res_by_name[r.func] = [r]
     # for results with the same func name, choose the most "serious" distritution
     true_res: list[PerfResult] = list(map(choose_the_most_serious, res_by_name.values()))
+    true_good_res: list[PerfResult] = list(map(choose_the_most_serious, good_res_by_name.values()))
 
-    return true_res
+    return true_res, true_good_res
 
 
 # TODO arr name should be arch
