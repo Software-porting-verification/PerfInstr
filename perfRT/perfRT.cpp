@@ -354,7 +354,7 @@ inline static long currentTimeClock() {
   struct timespec ts;
   clock_gettime(CLOCK_REALTIME, &ts);
 
-  return ts.tv_sec + ts.tv_nsec;
+  return ts.tv_sec * 1000000000 + ts.tv_nsec;
 }
 
 #if defined (USE_PERF_SYSCALL)
