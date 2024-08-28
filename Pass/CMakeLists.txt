@@ -5,6 +5,7 @@ add_llvm_pass_plugin(PerfInstrPass
     PerfInstrPass.cpp
     SqliteDebugWriter.cpp
 )
-target_compile_options(PerfInstrPass PUBLIC "-g" "-Og")
+#target_compile_options(PerfInstrPass PUBLIC "-g" "-Og")
+target_compile_options(PerfInstrPass PUBLIC "-O2")
 
 

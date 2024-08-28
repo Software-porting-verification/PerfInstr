@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 # Load LLVMConfig.cmake. If this fails, consider setting `LLVM_DIR` to point
 # to your LLVM installation's `lib/cmake/llvm` directory.
-find_package(LLVM 16 REQUIRED CONFIG)
+find_package(LLVM REQUIRED CONFIG)
 
 # Include the part of LLVM's CMake libraries that defines
 # `add_llvm_pass_plugin`.
