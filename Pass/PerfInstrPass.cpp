@@ -64,12 +64,12 @@ namespace {
 /// function declarations into the module if they don't exist already.
 /// Instantiating ensures the __trec_init function is in the list of global
 /// constructors for the module.
-struct TraceRecorder {
-  TraceRecorder() {
+struct PerfInstr {
+  PerfInstr() {
     // Sanity check options and warn user.
   }
 
-  ~TraceRecorder() {}
+  ~PerfInstr() {}
   bool instrmentFunction(Function& F);
 
  private:
@@ -97,24 +97,24 @@ void insertModuleCtor(Module& M) {
 
 }  // anonymous namespace
 
-PreservedAnalyses TraceRecorderPass::run(Function& F,
-                                         FunctionAnalysisManager& FAM) {
-  TraceRecorder TRec;
-  TRec.instrmentFunction(F);
+PreservedAnalyses PerfInstrPass::run(Function& F,
+                                     FunctionAnalysisManager& FAM) {
+  PerfInstr pi;
+  pi.instrmentFunction(F);
   return PreservedAnalyses::none();
 }
 
-PreservedAnalyses ModuleTraceRecorderPass::run(Module& M,
-                                               ModuleAnalysisManager& MAM) {
+PreservedAnalyses ModulePerfInstrPass::run(Module& M,
+                                           ModuleAnalysisManager& MAM) {
   insertModuleCtor(M);
-  TraceRecorder Trec;
+  PerfInstr pi;
   for (auto& F : M) {
-    Trec.instrmentFunction(F);
+    pi.instrmentFunction(F);
   }
   return PreservedAnalyses::none();
 }
 
-void TraceRecorder::initialize(Module& M) {
+void PerfInstr::initialize(Module& M) {
   const DataLayout& DL = M.getDataLayout();
   IntptrTy = DL.getIntPtrType(M.getContext());
   IRBuilder<> IRB(M.getContext());
@@ -128,7 +128,7 @@ void TraceRecorder::initialize(Module& M) {
                                        IRB.getVoidTy(), IRB.getInt64Ty());
 }
 
-bool TraceRecorder::instrmentFunction(Function& F) {
+bool PerfInstr::instrmentFunction(Function& F) {
   StringRef funcName = F.getName();
 
   // Builtins, llvm intrinsics, lib functions are all empty.
@@ -194,12 +194,12 @@ bool TraceRecorder::instrmentFunction(Function& F) {
 extern "C" LLVM_ATTRIBUTE_WEAK ::llvm::PassPluginLibraryInfo
 llvmGetPassPluginInfo() {
   return {.APIVersion = LLVM_PLUGIN_API_VERSION,
-          .PluginName = "TraceRecorder (perf) pass",
+          .PluginName = "performance instrumentation pass",
           .PluginVersion = "v3.0",
           .RegisterPassBuilderCallbacks = [](PassBuilder& PB) {
             PB.registerOptimizerLastEPCallback(
                 [](ModulePassManager& MPM, OptimizationLevel Level) {
-                  MPM.addPass(ModuleTraceRecorderPass());
+                  MPM.addPass(ModulePerfInstrPass());
                 });
           }};
 }
