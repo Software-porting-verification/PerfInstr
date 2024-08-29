@@ -18,9 +18,21 @@ import sqlite3
 from contextlib import closing
 from pathlib import Path
 import matplotlib.pyplot as plt
+import hashlib
 
 
 g_obs_prefix = '/home/abuild/rpmbuild/BUILD/'
+
+
+def set_g_obs_prefix(p: str):
+    global g_obs_prefix
+    g_obs_prefix = p
+
+
+def get_g_obs_prefix():
+    global g_obs_prefix
+    return g_obs_prefix
+
 
 
 class PerfData:
@@ -136,8 +148,20 @@ def checkFile(path: str):
             print(f"Not a file: {path}")
             exit(-3)
     else:
-        print(f"Dir not found: {path}")
+        print(f"Dir of file not found: {path}")
         exit(-4)
+
+
+def checkFileNoExit(path: str):
+    if os.path.exists(path):
+        if not os.path.isfile(path):
+            print(f"Not a file: {path}")
+            return False
+    else:
+        print(f"Dir of file not found: {path}")
+        return False
+
+    return True
 
 
 def checkDB(path):
@@ -151,6 +175,7 @@ def checkDB(path):
 
 
 def find_matches(perfDatas1: list[PerfData], perfDatas2: list[PerfData]) -> list[tuple[PerfData, PerfData]]:
+    print('Looking for matching perf data...')
     list1 = perfDatas1.copy()
     list2 = perfDatas2.copy()
 
@@ -176,6 +201,7 @@ def find_matches(perfDatas1: list[PerfData], perfDatas2: list[PerfData]) -> list
         if not foundMatch:
             i += 1
 
+    print('Done')
     return matches
 
 
@@ -256,12 +282,17 @@ def choose_the_most_serious(results: list[PerfResult]) -> PerfResult:
 
 
 def analyze_all(perfDatas1: list[PerfData], perfDatas2: list[PerfData]):
+    print('Preparing to analyze...')
+
     matches: list[tuple[PerfData, PerfData]] = find_matches(perfDatas1, perfDatas2)
     if matches == []:
         print('No match found')
         exit(0)
     res: list[PerfResult] = []
     goods_res: list[PerfResult] = []
+
+    print('Analyzing...')
+
     for kv in matches:
         bad, good = analyze(kv[0], kv[1])
         res += bad
@@ -284,11 +315,16 @@ def analyze_all(perfDatas1: list[PerfData], perfDatas2: list[PerfData]):
     true_res: list[PerfResult] = list(map(choose_the_most_serious, res_by_name.values()))
     true_good_res: list[PerfResult] = list(map(choose_the_most_serious, good_res_by_name.values()))
 
+    print('Done.')
+
     return true_res, true_good_res
 
 
 # TODO arr name should be arch
 def generate_plot(res: PerfResult, path: str, arr1_name='', arr2_name=''):
+    # to avoid file name too long error
+    if len(res.func) > 100:
+        res.func = hashlib.sha256(str.encode(res.func)).hexdigest()
     file = f'{path}/{res.func}'
     arr1 = res.dist1
     arr2 = res.dist2
@@ -330,30 +366,33 @@ def generate_plot(res: PerfResult, path: str, arr1_name='', arr2_name=''):
 def fetch_source_code(res: PerfResult) -> list[str]:
     # NAME from db is like: /home/abuild/rpmbuild/BUILD/aide-0.18.5/lex.yy.c
     # remove prefix and concat with srcDir
-    bare_name = res.pd1.get_file_name(res.func, res.fid1).removeprefix(g_obs_prefix)
+    bare_name = res.pd1.get_file_name(res.func, res.fid1).removeprefix(get_g_obs_prefix())
     src_file = res.pd1.srcDir + bare_name
-    checkFile(src_file)
     # get line, for perf-instr, line num is in `func`
-    nameline = res.func.split(':')
+    # use rsplit() instead of split() because of names like "OptionStorageTemplate<gmx::BooleanOption>: 401"
+    nameline = res.func.rsplit(':', 1)
     name = nameline[0]
     # -1 to include the function name decl
     line = int(nameline[1].strip()) - 1
 
-    # open file and read several lines
-    with open(src_file, 'r') as f:
-        lines = f.readlines()
-        linenum = len(lines)
-        lcount = 19
-        # select only 5 lines or so
-        if line < linenum:
-            if line + lcount >= linenum:
-                srcs = lines[line:linenum]
+    if checkFileNoExit(src_file):
+        # open file and read several lines
+        with open(src_file, 'r') as f:
+            lines = f.readlines()
+            linenum = len(lines)
+            lcount = 19
+            # select only 5 lines or so
+            if line < linenum:
+                if line + lcount >= linenum:
+                    srcs = lines[line:linenum]
+                else:
+                    srcs = lines[line:line+lcount]
             else:
-                srcs = lines[line:line+lcount]
-        else:
-            print(f'Error: func {name} line {line} exceeding file lines ({linenum})')
+                print(f'Error: func {name} line {line} exceeding file lines ({linenum})')
+        srcs.append('[...]')
+    else:
+        srcs = ['src not found']
 
-    srcs.append('[...]')
     return srcs, bare_name
 
 
@@ -368,6 +407,7 @@ class ReportItem:
 def generate_report(results: list[PerfResult], path = '.'):
     # gen HTML
     # gen plot
+    print('Generating plot...')
     reports: ReportItem = []
     for res in results:
         srcs, src_file = fetch_source_code(res)
@@ -390,6 +430,7 @@ def generate_report(results: list[PerfResult], path = '.'):
     )
     template = env.get_template('report.html')
     with open(f'{filename}.html', 'w') as f:
+        print('Rendering report...')
         f.write(template.render(perf_package = filename, reports = reports))
-    print('rendered')
+    print('Rendered.')
     
