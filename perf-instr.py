@@ -82,6 +82,7 @@ def readData(data_path: str) -> PerfData:
         # <: little endian
         mode   = struct.unpack('<b', bs[i   : i+1])[0]
         length = struct.unpack('<i', bs[i+1 : i+5])[0]
+        interval = struct.unpack('<i', bs[i+5 : i+9])[0]
         # print(f"mode: {mode}, bucket length: {length}")
 
         # TODO flexible interval size
@@ -96,7 +97,7 @@ def readData(data_path: str) -> PerfData:
 
         # data : fid -> bucket
         data = {}
-        start = i + 5
+        start = i + 9
         for i in range(num_func):
             fid = struct.unpack('<Q', bs[start:start + 8])[0]
             start += 8
@@ -171,5 +172,5 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     if not args.prefix == None:
-        g_obs_prefix = args.prefix
+        set_g_obs_prefix(args.prefix)
     main(args.dataDir1, args.dataDir2)
