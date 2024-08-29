@@ -63,10 +63,11 @@ enum Mode : unsigned char {
 constexpr char g_envDataPath[] = "TREC_PERF_DIR";
 constexpr char g_envMode[]     = "TREC_PERF_MODE";
 constexpr char g_envInterval[] = "TREC_PERF_INTERVAL";
-constexpr int  g_defaultNumOfBuckets = 1024;
+constexpr char g_envBucketCount[] = "TREC_PERF_BUCKET_COUNT";
 // constexpr int idxInfinity = defaultNumOfBuckets - 1;
 // constexpr int lengthOfTimeIntervals = defaultNumOfBuckets - 1;
 
+static int g_defaultNumOfBuckets = 1024;
 // TODO why __trec_init() is called in every thread?
 static std::atomic_bool g_inited(false);
 static Mode g_mode;
@@ -74,7 +75,7 @@ static Mode g_mode;
 // static pthread_key_t finalizeKey;
 // used to check if there's a fork
 static pid_t g_pid;
-static unsigned int g_timeIntervals[g_defaultNumOfBuckets];
+static unsigned int * g_timeIntervals;
 // time interval as per bucket (nanosecond)
 static int g_interval = 5000;
 
@@ -216,6 +217,7 @@ void __trec_deinit() {
   delete g_binPath;
   delete g_cmdline;
   delete g_pwd;
+  delete g_timeIntervals;
   for (auto kv : *g_lastCallTimePerFuncPerThread) {
     delete kv.second;
   }
@@ -279,6 +281,16 @@ void __trec_init() {
     }
   }
 
+  env = getenv(g_envBucketCount);
+  if (env != nullptr) {
+    int count = atoi(env);
+    if (count <= 1024 || count > 4096) {
+      fprintf(stderr, "[perfRT] Invalid bucket count %s, defaults to %d\n", env, g_defaultNumOfBuckets);
+    } else {
+      g_defaultNumOfBuckets = count;
+    }
+  }
+
   // read program name and cmd args
   std::ifstream file("/proc/self/cmdline");
   if (file.bad()) {
@@ -312,6 +324,7 @@ void __trec_init() {
 
   // printf("bin: %s, pwd: %s\n", g_binPath->c_str(), g_pwd->c_str());
 
+  g_timeIntervals = (unsigned int *) malloc(g_defaultNumOfBuckets * sizeof(unsigned int));
   initTimeIntervals();
   
   g_funcCallCounter = new std::unordered_map<long, std::vector<long>>();
@@ -395,6 +408,8 @@ static void flushImpl() {
   ofs.write((const char *)&g_mode, sizeof(g_mode));
   // write vector length
   ofs.write((const char *)&g_defaultNumOfBuckets, sizeof(g_defaultNumOfBuckets));
+  // write time interval
+  ofs.write((const char *)&g_interval, sizeof(g_interval));
   // write data
   for (auto & kv : *g_funcCallCounter) {
     // fid
