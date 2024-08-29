@@ -1,4 +1,5 @@
 #include <cassert>
+#include <cstdint>
 #include <cstdio>
 #include <string.h>
 
@@ -260,7 +261,7 @@ uint64_t SqliteDebugWriter::craftFID(int fileID, int funcID) {
   assert(dbID >= 1 && fileID >= 1 && funcID >= 1);
   assert((dbID < (1 << 16)) && (fileID < (1 << 24)) && (funcID < (1 << 24)));
 
-  return ((uint64_t) dbID << 48) | (fileID << 24) | funcID;
+  return ((uint64_t) (dbID & 0xffff) << 48) | ((uint64_t) (fileID & 0xffffff) << 24) | funcID;
 }
 
 int SqliteDebugWriter::insertFileName(const char* name) {
