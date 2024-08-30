@@ -322,10 +322,9 @@ def analyze_all(perfDatas1: list[PerfData], perfDatas2: list[PerfData]):
 
 # TODO arr name should be arch
 def generate_plot(res: PerfResult, path: str, arr1_name='', arr2_name=''):
-    # to avoid file name too long error
-    if len(res.func) > 100:
-        res.func = hashlib.sha256(str.encode(res.func)).hexdigest()
-    file = f'{path}/{res.func}'
+    # to avoid file name too long error and colon (cannot appear in file name on Windows)
+    image_name = hashlib.sha256(str.encode(res.func)).hexdigest()
+    file = f'{path}/{image_name}'
     arr1 = res.dist1
     arr2 = res.dist2
 
@@ -359,6 +358,7 @@ def generate_plot(res: PerfResult, path: str, arr1_name='', arr2_name=''):
         os.makedirs(path)
     p = os.path.join(path, '%s.png' % file)
     plt.savefig(p)
+    plt.close(fig)
     return p
     # plt.show()
 
@@ -407,7 +407,7 @@ class ReportItem:
 def generate_report(results: list[PerfResult], path = '.'):
     # gen HTML
     # gen plot
-    print('Generating plot...')
+    print(f'Generating report for {len(results)} results...')
     reports: ReportItem = []
     for res in results:
         srcs, src_file = fetch_source_code(res)
