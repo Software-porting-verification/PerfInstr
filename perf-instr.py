@@ -85,8 +85,7 @@ def readData(data_path: str) -> PerfData:
         interval = struct.unpack('<i', bs[i+5 : i+9])[0]
         # print(f"mode: {mode}, bucket length: {length}")
 
-        # TODO flexible interval size
-        perfData = PerfData(data_path, cmd, exe, pwd, 5000)
+        perfData = PerfData(data_path, cmd, exe, pwd, interval)
         perfData.mode = mode
         perfData.numOfFuncs = length
 
