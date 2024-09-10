@@ -174,7 +174,7 @@ def convert_dbs(dbs: list[str], raws: list[str]) -> list[PerfData]:
         cmd = find_cmdline(db, raws)
         pd = PerfData('', cmd, '', '', g_interval)
         pd.mode = 3
-        pd.numOfFuncs = len(timevec.keys())
+        pd.buckets = len(timevec.keys())
         pd.data = timevec
         pd.symbol_dict = symbols
         # for k,v in timevec.items():
