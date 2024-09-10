@@ -40,9 +40,9 @@ class PerfData:
     rawData: dict[int, list[int]]
     # dict[fid, dict[interval, counts]]
     data: dict[int, dict[int, int]]
-    # 0: time, 1: cycle, 2: insn, 3: perf
+    # 0: time, 1: cycle, 2: insn, 3: perf, 4: time_bbl
     mode: int
-    numOfFuncs: int
+    buckets: int
     dbDir: str = None
     srcDir: str = None
     symbol_dict: dict[int, str] = None
