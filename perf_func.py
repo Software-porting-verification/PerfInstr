@@ -96,7 +96,6 @@ def main(dir1: str, dir2: str):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        prog='perf-instr',
         description='Analyze program performance across architectures.')
     parser.add_argument('dataDir1', type=str, help='directory of perf data and debuginfo from the 1st archtecture')
     parser.add_argument('dataDir2', type=str, help='directory of perf data and debuginfo from the 2nd archtecture')
