@@ -188,6 +188,37 @@ def read_perf_data(data_path: str) -> PerfData:
         return perfData
 
 
+def dump_perf_data(p: str):
+    d = read_perf_data(p)
+    print(f'file: {p}')
+    print(f'cmd:  {d.cmd}')
+    print(f'exe:  {d.exe}')
+    print(f'pwd:  {d.pwd}')
+    if d.mode == 0:
+        print('mode: time')
+    elif d.mode == 1:
+        print('mode: cycle')
+    elif d.mode == 2:
+        print('mode: instruction')
+    elif d.mode == 3:
+        print('mode: perf command')
+    elif d.mode == 4:
+        print('mode: time bbl')
+    else:
+        print('invalid mode: ' + d.mode)
+        exit(-1)
+    print(f'interval: {d.interval}ns')
+    print(f'#buckets: {d.buckets}')
+    print('Time data:')
+    # print data of all functions?
+    # print text or gen HTML?
+    # need to get func name, ...
+    # TODO func/bbl number
+    print(f'\tentries: {len(d.data.keys())}')
+    for fid, times in d.data.items():
+        pass
+
+
 def decodeFid(fid):
     dbID   = (fid >> 48) & 0xffff
     fileID = (fid >> 24) & 0xffffff
@@ -502,3 +533,55 @@ def generate_report(results: list[PerfResult], path = '.'):
         f.write(template.render(perf_package = filename, reports = reports))
     print('Rendered.')
     
+
+####################################################
+#
+# rvbench performance tests
+#
+####################################################
+
+
+def find_main_fid(pd: PerfData):
+    for fid, v in pd.data.items():
+        if pd.get_symbol_name(fid).startswith('main:'):
+            print(f'find_main_fid: {pd.get_symbol_name(fid)}')
+            return fid
+    print('No main() function found')
+    return False
+
+
+def sum_time(freq: dict[int, int]) -> int:
+    s = 0
+    for t, c in freq.items():
+        s = s + t * c
+    return s
+
+
+def sum_time_all(data: dict[int, dict[int, int]]) -> int:
+    s = 0
+    for freq in data.values():
+        for t, c in freq.items():
+            s = s + t * c
+    return s
+
+
+def rvbench_test(pd1: PerfData, pd2: PerfData):
+    """Compare the performance of PerfData from two platforms."""
+    # find main fid
+    # main_fid1 = find_main_fid(pd1)
+    # main_fid2 = find_main_fid(pd2)
+
+    # freq1 = pd1.data[main_fid1]
+    # freq2 = pd2.data[main_fid2]
+
+    # print(main_fid1)
+    # print(main_fid2)
+
+    s1 = sum_time_all(pd1.data)
+    s2 = sum_time_all(pd2.data)
+
+    return s1, s2
+
+    # if s1 and s2:
+    #     print(f"score 1: {s1}")
+    #     print(f"score 2: {s2}")
