@@ -15,6 +15,7 @@ import subprocess
 import yaml
 import argparse
 import sqlite3
+import struct
 from contextlib import closing
 from pathlib import Path
 import matplotlib.pyplot as plt
@@ -118,6 +119,73 @@ class PerfResult:
         self.dist2 = dist2
         self.fid1 = fid1
         self.fid2 = fid2
+
+
+def read_perf_data(data_path: str) -> PerfData:
+    with open(data_path, mode='rb') as file:
+        bs = file.read()
+        # cmdline
+        rawCmd = []
+        i = 0
+        while not bs[i] == 3:
+            c = struct.unpack('<c', bs[i:i+1])[0]
+            # note that '\0' exists
+            rawCmd.append(c.decode('utf-8'))
+            i += 1
+        i += 1
+        # exe path
+        rawExe = []
+        while not bs[i] == 3:
+            # print(i)
+            c = struct.unpack('<c', bs[i:i+1])[0]
+            rawExe.append(c.decode('utf-8'))
+            i += 1
+        i += 1
+        # working dir
+        rawPwd = []
+        while not bs[i] == 3:
+            # print(i)
+            c = struct.unpack('<c', bs[i:i+1])[0]
+            rawPwd.append(c.decode('utf-8'))
+            i += 1
+        i += 1
+
+        cmd = "".join(rawCmd)
+        exe = "".join(rawExe)
+        pwd = "".join(rawPwd)
+        exeParams = cmd + exe + pwd
+        # print(f"cmd: {cmd}, exe: {exe}, pwd: {pwd}")
+        # print(f"exeParams: {exeParams}")
+
+        # <: little endian
+        mode   = struct.unpack('<b', bs[i   : i+1])[0]
+        length = struct.unpack('<i', bs[i+1 : i+5])[0]
+        interval = struct.unpack('<i', bs[i+5 : i+9])[0]
+        # print(f"mode: {mode}, bucket length: {length}")
+
+        perfData = PerfData(data_path, cmd, exe, pwd, interval)
+        perfData.mode = mode
+        perfData.buckets = length
+
+        # read each function's counts
+        len_fid_buckets = (length + 1) * 8
+        num_func  = (len(bs) - (1 + 4)) // len_fid_buckets
+        # print(f"Number of functions: {num_func}")
+
+        # data : fid -> bucket
+        data = {}
+        start = i + 9
+        for i in range(num_func):
+            fid = struct.unpack('<Q', bs[start:start + 8])[0]
+            start += 8
+            vec = []
+            for bucket_i in range(length):
+                vec.append(struct.unpack('<q', bs[start:start + 8])[0])
+                start += 8
+
+            perfData.addRawData(fid, vec)
+        
+        return perfData
 
 
 def decodeFid(fid):
