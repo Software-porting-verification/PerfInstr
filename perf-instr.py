@@ -43,7 +43,7 @@ def outputText(data, interval):
     pass
 
 
-def readData(data_path: str) -> PerfData:
+def read_perf_data(data_path: str) -> PerfData:
     with open(data_path, mode='rb') as file:
         bs = file.read()
         # cmdline
@@ -112,7 +112,7 @@ def readData(data_path: str) -> PerfData:
 
 # TODO put this in perflib
 def dump_perf_data(p: str):
-    d = readData(p)
+    d = read_perf_data(p)
     print(f'file: {p}')
     print(f'cmd:  {d.cmd}')
     print(f'exe:  {d.exe}')
@@ -174,8 +174,8 @@ def main(dir1: str, dir2: str):
         print(f"{dataDir2} has no data files")
         exit(0)
 
-    perfDatas1 = list(map(readData, perfDataFiles1))
-    perfDatas2 = list(map(readData, perfDataFiles2))
+    perfDatas1 = list(map(read_perf_data, perfDataFiles1))
+    perfDatas2 = list(map(read_perf_data, perfDataFiles2))
 
     for pd in perfDatas1:
         pd.dbDir = dbDir1
