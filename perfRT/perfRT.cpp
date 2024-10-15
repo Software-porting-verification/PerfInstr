@@ -41,8 +41,10 @@ constexpr bool debug = false;
 
 
 extern "C" {
-void __trec_perf_func_enter(long);
-void __trec_perf_func_exit(long);
+void __trec_perf_enter(long);
+void __trec_perf_exit(long);
+// run BBL recording in this function?
+bool __trec_perf_record_bbl(long);
 void __trec_init();
 }
 
@@ -57,10 +59,12 @@ enum Mode : unsigned char {
   TIME  = 0,
   CYCLE = 1,
   INSN  = 2,
+  TIME_BBL = 4,
   NONE
 };
 
 constexpr char g_envDataPath[] = "TREC_PERF_DIR";
+// If this env var is fid=xx,xx,xx, we are automatically in TIME_BBL mode.
 constexpr char g_envMode[]     = "TREC_PERF_MODE";
 constexpr char g_envInterval[] = "TREC_PERF_INTERVAL";
 constexpr char g_envBucketCount[] = "TREC_PERF_BUCKET_COUNT";
@@ -93,6 +97,8 @@ static std::string * g_binPath;
 // initial working directrory,
 // "initial" because program may later call chdir()
 static std::string * g_pwd;
+// The list of fids do to BBL recording.
+static std::vector<unsigned long> * g_fids;
 
 #if defined (USE_PERF_SYSCALL)
 struct perfFD {
@@ -163,7 +169,7 @@ static std::mutex  * g_lastCallTimeMapLock;
 //
 //===----------------------------------------------------------------------===//
 
-void __trec_perf_func_enter(long fid) {
+void __trec_perf_enter(long fid) {
   if (g_mode == NONE) return;
 
   DEBUG(printf("[perfRT] enter %ld\n", fid););
@@ -173,7 +179,7 @@ void __trec_perf_func_enter(long fid) {
   (*map)[fid] = t;
 }
 
-void __trec_perf_func_exit(long fid) {
+void __trec_perf_exit(long fid) {
   if (g_mode == NONE) return;
 
   // FIXME sometimes the key does not exist when 
@@ -201,6 +207,19 @@ void __trec_perf_func_exit(long fid) {
   g_lock->unlock();
 }
 
+bool __trec_perf_record_bbl(long bbid) {
+  printf("[perfRT] __trec_perf_record_bbl bbid: %ld\n", bbid);
+  if (g_mode != TIME_BBL) return false;
+  for (auto i : *g_fids) {
+    if (i == bbid) {
+      printf("[perfRT] __trec_perf_record_bbl bbid %ld found\n", bbid);    
+      return true;
+    }
+  }
+
+  return false;
+}
+
 void __trec_deinit() {
   if (g_mode == NONE) return;
 
@@ -223,6 +242,7 @@ void __trec_deinit() {
   }
   delete g_lastCallTimePerFuncPerThread;
   delete g_lastCallTimeMapLock;
+  delete g_fids;
 }
 
 void __trec_init() {
@@ -244,9 +264,26 @@ void __trec_init() {
   } else if (strcmp(env, "insn") == 0) {
     g_mode = INSN;
   } else {
-    fprintf(stderr, 
-      "[perfRT] Unknown value for env %s: %s, available ones: time, cycle, insn\n", g_envMode, env);
-    abort();
+    std::string v = std::string(env);
+    if (v.starts_with("fid=")) {
+      printf("BBL recording mode\n");
+      std::stringstream ss(v.substr(4));
+      std::vector<unsigned long> fids;
+      std::string item;
+
+      while (std::getline(ss, item, ',')) {
+        // If there' error, program terminates.
+        printf("adding fid %ld\n", std::stoul(item));
+        fids.push_back(std::stoul(item));
+      }
+
+      g_mode = TIME_BBL;
+      g_fids = new std::vector<unsigned long>(fids);
+    } else {
+      fprintf(stderr, 
+        "[perfRT] Unknown value for env %s: %s, available ones: time, cycle, insn, fid=xx,...\n", g_envMode, env);
+      abort();
+    }
   }
   
   env = getenv(g_envDataPath);
