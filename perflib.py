@@ -86,6 +86,18 @@ class PerfData:
         """
         if self.mode == 3:
             return self.symbol_dict[sid]
+        elif self.mode == 4:
+            # BBL mode
+            dbID, bbid = decodeBBLid(sid)
+            dbName = f"{self.dbDir}/debuginfo{dbID}.db"
+            if dbID < 0:
+                print(f"Less than 0: {dbID}")
+            checkDB(dbName)
+            with closing(sqlite3.connect(dbName)) as connection:
+                with closing(connection.cursor()) as cursor:
+                    rows = cursor.execute("select FID from BBLS where ID=?", (bbid,)).fetchall()
+                    rows = cursor.execute("select NAME from FUNCNAMES where ID=?", (rows[0][0],)).fetchall()
+                    return rows[0][0]
         else:
             dbID, funcID, _ = decodeFid(sid)
             dbName = f"{self.dbDir}/debuginfo{dbID}.db"
@@ -96,6 +108,38 @@ class PerfData:
                 with closing(connection.cursor()) as cursor:
                     rows = cursor.execute("select NAME from FUNCNAMES where ID=?", (funcID,)).fetchall()
                     return rows[0][0]
+
+
+    def get_bbl_lines(self, bblid):
+        if not mode == 4:
+            print(f'get_bbl_lines() is only available in BBL mode.')
+            exit(-1)
+
+        dbID, bbid = decodeBBLid(sid)
+        dbName = f"{self.dbDir}/debuginfo{dbID}.db"
+        if dbID < 0:
+            print(f"Less than 0: {dbID}")
+        checkDB(dbName)
+        with closing(sqlite3.connect(dbName)) as connection:
+            with closing(connection.cursor()) as cursor:
+                rows = cursor.execute("select LINESTART,LINEEND from BBLS where ID=?", (bbid,)).fetchall()
+                return rows[0][0], rows[0][1]
+
+
+    def get_bbl_fid(self, bblid):
+        if not mode == 4:
+            print(f'get_bbl_fid() is only available in BBL mode.')
+            exit(-1)
+
+        dbID, bbid = decodeBBLid(sid)
+        dbName = f"{self.dbDir}/debuginfo{dbID}.db"
+        if dbID < 0:
+            print(f"Less than 0: {dbID}")
+        checkDB(dbName)
+        with closing(sqlite3.connect(dbName)) as connection:
+            with closing(connection.cursor()) as cursor:
+                rows = cursor.execute("select FID from BBLS where ID=?", (bbid,)).fetchall()
+                return rows[0][0]
 
 
     def get_file_name(self, func: str, fid):
@@ -227,6 +271,13 @@ def decodeFid(fid):
     return dbID, funcID, fileID
 
 
+def decodeBBLid(bblid):
+    dbID   = (bblid >> 48) & 0xffff
+    bbID = bblid & 0xffffffffffff
+
+    return dbID, bbID
+
+
 def checkDir(path: str):
     if os.path.exists(path):
         if not os.path.isdir(path):
@@ -274,7 +325,7 @@ def checkDB(path):
 
 
 def find_matches(perfDatas1: list[PerfData], perfDatas2: list[PerfData]) -> list[tuple[PerfData, PerfData]]:
-    print('Looking for matching perf data...')
+    # print('Looking for matching perf data...')
     list1 = perfDatas1.copy()
     list2 = perfDatas2.copy()
 
@@ -300,7 +351,7 @@ def find_matches(perfDatas1: list[PerfData], perfDatas2: list[PerfData]) -> list
         if not foundMatch:
             i += 1
 
-    print('Done')
+    # print('Done')
     return matches
 
 
@@ -313,6 +364,31 @@ from scipy import stats
 def standardlization(arr1):
     arr1_np=np.array(arr1)
     return (arr1_np-arr1_np.min())/(arr1_np.max()-arr1_np.min())
+
+
+# prepare data in PerfData for analysis
+def prepare_data(data):
+    for k,v in data.items():
+        times1+=[k for i in range(0,v)]
+    return standardlization(times1)
+
+
+def analyze_data(d1, d2):
+    d1 = prepare_data(d1)
+    d2 = prepare_data(d2)
+
+    # statistics, pvalues = ttest_ind(income_t,income_c)
+    # statistics, pvalues = mannwhitneyu(income_t,income_c)
+    # statistics, pvalues = chisquare(income_t,income_c)
+    statistics, pvalues = ks_2samp(d1, d2)
+    if pvalues < statistics:
+        # bad
+        return False, d1, d2
+    else:
+        # good
+        return True, d1, d2
+
+
 
 
 def analyze(pd1: PerfData, pd2: PerfData) -> list[PerfResult]:
@@ -376,7 +452,7 @@ def analyze(pd1: PerfData, pd2: PerfData) -> list[PerfResult]:
 
 
 def choose_the_most_serious(results: list[PerfResult]) -> PerfResult:
-    # TODO
+    # TODO use the navbar approach to avoid this
     return results[0]
 
 
@@ -495,12 +571,64 @@ def fetch_source_code(res: PerfResult) -> list[str]:
     return srcs, bare_name
 
 
+def fetch_source_code_range(pd: PerfData, func: str, fid, start, end):
+    # NAME from db is like: /home/abuild/rpmbuild/BUILD/aide-0.18.5/lex.yy.c
+    # remove prefix and concat with srcDir
+    bare_name = pd.get_file_name("", fid).removeprefix(get_g_obs_prefix())
+    src_file = pd.srcDir + bare_name
+    # get line, for perf-instr, line num is in `func`
+    # use rsplit() instead of split() because of names like "OptionStorageTemplate<gmx::BooleanOption>: 401"
+    # nameline = func.rsplit(':', 1)
+    # name = nameline[0]
+    # -1 to include the function name decl
+    # line = int(nameline[1].strip()) - 1
+
+    if checkFileNoExit(src_file):
+        # open file and read several lines
+        with open(src_file, 'r') as f:
+            lines = f.readlines()
+            srcs = lines[start:end+1]
+    else:
+        srcs = ['src not found']
+
+    return srcs, bare_name
+
+
 class ReportItem:
     def __init__(self, func: str, code: str, file: str, pic: str):
         self.func = func
         self.code = code
         self.file = file
         self.pic = pic
+
+
+class BBLReportItem:
+    def __init__(self, code: list[str], file: str, pic: str):
+        # code corresponding to the BBL
+        self.code = code
+        # source file path
+        self.file = file
+        # base64 encoding of the plot
+        self.pic = pic
+
+
+class BBLFuncReport:
+    def __init__(self, func: str):
+        self.func = func
+        self.bbl_items = []
+
+    def add_bbl_items(self, bblitem: BBLReportItem):
+        self.bbl_items.append(bblitem)
+
+
+class BBLReport:
+    def __init__(self, pd: PerfData):
+        self.perf_data  = pd
+        self.func_items = []
+
+    def add_func_items(self, funcitem: BBLFuncReport):
+        self.func_items.append(funcitem)
+
 
 
 def generate_report(results: list[PerfResult], path = '.'):
@@ -533,55 +661,3 @@ def generate_report(results: list[PerfResult], path = '.'):
         f.write(template.render(perf_package = filename, reports = reports))
     print('Rendered.')
     
-
-####################################################
-#
-# rvbench performance tests
-#
-####################################################
-
-
-def find_main_fid(pd: PerfData):
-    for fid, v in pd.data.items():
-        if pd.get_symbol_name(fid).startswith('main:'):
-            print(f'find_main_fid: {pd.get_symbol_name(fid)}')
-            return fid
-    print('No main() function found')
-    return False
-
-
-def sum_time(freq: dict[int, int]) -> int:
-    s = 0
-    for t, c in freq.items():
-        s = s + t * c
-    return s
-
-
-def sum_time_all(data: dict[int, dict[int, int]]) -> int:
-    s = 0
-    for freq in data.values():
-        for t, c in freq.items():
-            s = s + t * c
-    return s
-
-
-def rvbench_test(pd1: PerfData, pd2: PerfData):
-    """Compare the performance of PerfData from two platforms."""
-    # find main fid
-    # main_fid1 = find_main_fid(pd1)
-    # main_fid2 = find_main_fid(pd2)
-
-    # freq1 = pd1.data[main_fid1]
-    # freq2 = pd2.data[main_fid2]
-
-    # print(main_fid1)
-    # print(main_fid2)
-
-    s1 = sum_time_all(pd1.data)
-    s2 = sum_time_all(pd2.data)
-
-    return s1, s2
-
-    # if s1 and s2:
-    #     print(f"score 1: {s1}")
-    #     print(f"score 2: {s2}")
