@@ -7,6 +7,7 @@
 
 const char * SQL_TABLE_FILENAMES = "FILENAMES";
 const char * SQL_TABLE_FUNCNAMES = "FUNCNAMES";
+const char * SQL_TABLE_BBLS      = "BBLS";
 
 const char * SQL_CREATE_MANAGER = 
   "CREATE TABLE MANAGER ("
@@ -19,7 +20,12 @@ const char * SQL_CREATE_TABLES =
     "NAME CHAR(2048));"
   "CREATE TABLE FUNCNAMES ("
     "ID INTEGER PRIMARY KEY AUTOINCREMENT,"
-    "NAME CHAR(256));";
+    "NAME CHAR(256));"
+  "CREATE TABLE BBLS ("
+    "ID  INTEGER PRIMARY KEY AUTOINCREMENT,"
+    "FID INTEGER,"
+    "LINESTART INTEGER,"
+    "LINEEND   INTEGER);";
 
 static int query_callback(void* ret, int argc, char** argv, char** azColName) {
   assert(argc == 1);
@@ -216,6 +222,21 @@ int SqliteDebugWriter::queryFileID(const char* name) {
 
 int SqliteDebugWriter::queryFuncID(const char* name) {
   return queryID(SQL_TABLE_FUNCNAMES, name);
+}
+
+int SqliteDebugWriter::getBBLID(uint64_t fid, int linestart, int lineend) {
+  char buf[4096];
+  snprintf(buf, 4095, "INSERT INTO %s VALUES (NULL, %ld, %d, %d);", SQL_TABLE_BBLS, fid, linestart, lineend);
+  char* errmsg;
+  int status = sqlite3_exec(db, buf, nullptr, nullptr, &errmsg);
+  if (status != SQLITE_OK) {
+    printf("query error(%d): %s\n", status, errmsg);
+    exit(status);
+  };
+  sqlite3_free(errmsg);
+
+  int id = sqlite3_last_insert_rowid(db);
+  return ((uint64_t) (dbID & 0xffff) << 48) | ((uint64_t) (id & 0xffffffffffff));
 }
 
 int SqliteDebugWriter::queryID(const char* table, const char* name) {
