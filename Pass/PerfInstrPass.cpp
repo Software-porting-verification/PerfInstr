@@ -73,8 +73,10 @@ struct PerfInstr {
  private:
   SqliteDebugWriter debugger;
   Type* IntptrTy;
-  FunctionCallee TrecEnter;
-  FunctionCallee TrecExit;
+  FunctionCallee TrecFuncEnter;
+  FunctionCallee TrecFuncExit;
+  FunctionCallee TrecBBLEnter;
+  FunctionCallee TrecBBLExit;
   FunctionCallee TrecRecordBBL;
 
   void initialize(Module& M);
@@ -122,9 +124,13 @@ void PerfInstr::initialize(Module& M) {
   // why?
   Attr = Attr.addFnAttribute(M.getContext(), Attribute::NoUnwind);
   // Initialize the callbacks.
-  TrecEnter = M.getOrInsertFunction("__trec_perf_enter", Attr,
+  TrecFuncEnter = M.getOrInsertFunction("__trec_perf_func_enter", Attr,
                                         IRB.getVoidTy(), IRB.getInt64Ty());
-  TrecExit = M.getOrInsertFunction("__trec_perf_exit", Attr,
+  TrecFuncExit = M.getOrInsertFunction("__trec_perf_func_exit", Attr,
+                                       IRB.getVoidTy(), IRB.getInt64Ty());
+  TrecBBLEnter = M.getOrInsertFunction("__trec_perf_bbl_enter", Attr,
+                                        IRB.getVoidTy(), IRB.getInt64Ty());
+  TrecBBLExit = M.getOrInsertFunction("__trec_perf_bbl_exit", Attr,
                                        IRB.getVoidTy(), IRB.getInt64Ty());
   TrecRecordBBL = M.getOrInsertFunction("__trec_perf_record_bbl", Attr,
                                        IRB.getInt64Ty());
@@ -176,8 +182,8 @@ bool PerfInstr::instrmentFunction(Function& F) {
     .append(": ").append(std::to_string(line)).c_str());
   uint64_t fid = debugger.craftFID(fileID, funcID);
 
-  llvm::dbgs() << "instr " << funcName << "() line " << line << " fid " << fid << "\n";
-  llvm::dbgs() << "\t filename: " << F.getSubprogram()->getFilename() << "\n";
+  // llvm::dbgs() << "instr " << funcName << "() line " << line << " fid " << fid << "\n";
+  // llvm::dbgs() << "\t filename: " << F.getSubprogram()->getFilename() << "\n";
 
   BasicBlock *entry = &F.getEntryBlock();
   IRBuilder<> irbEntry(&*entry->getFirstInsertionPt());
@@ -202,16 +208,15 @@ bool PerfInstr::instrmentFunction(Function& F) {
   instrumentBasicBlocks(newBlocks, fid);
 
   // instrument function recording last
-  irbEntry.CreateCall(TrecEnter, {irbEntry.getInt64(fid)});
+  irbEntry.CreateCall(TrecFuncEnter, {irbEntry.getInt64(fid)});
   for (auto irbExit : escapes) {
-    irbExit->CreateCall(TrecExit, {irbExit->getInt64(fid)});
+    irbExit->CreateCall(TrecFuncExit, {irbExit->getInt64(fid)});
   }
 
   return false;
 }
 
 void PerfInstr::instrumentBasicBlocks(std::vector<BasicBlock *> blocks, uint64_t fid) {
-  llvm::dbgs() << "instr BBs\n";
   for (auto bb : blocks) {
     int enter_line = 0, enter_col = 0, exit_line = 0, exit_col = 0;
     auto FirstI = &*(bb->getFirstInsertionPt());
@@ -231,7 +236,6 @@ void PerfInstr::instrumentBasicBlocks(std::vector<BasicBlock *> blocks, uint64_t
 
     // look for the debug info
     while (FirstI != TermI && (enter_line == 0)) {
-      llvm::dbgs() << "instr BBs enter_line: " << enter_line << "\n";
       FirstI = FirstI->getNextNode();
       if (FirstI->getDebugLoc()) {
         enter_line = FirstI->getDebugLoc().getLine();
@@ -242,7 +246,6 @@ void PerfInstr::instrumentBasicBlocks(std::vector<BasicBlock *> blocks, uint64_t
 
     IRBuilder<> ExitIRB(TermI);
     while (TermI != FirstI && (exit_line == 0)) {
-      llvm::dbgs() << "instr BBs exit_line: " << exit_line << "\n";
       TermI = TermI->getPrevNode();
       if (TermI->getDebugLoc()) {
         exit_line = TermI->getDebugLoc().getLine();
@@ -255,18 +258,14 @@ void PerfInstr::instrumentBasicBlocks(std::vector<BasicBlock *> blocks, uint64_t
       continue;
     }
 
-    int bbid = debugger.getBBLID(fid, enter_line, exit_line);
+    uint64_t bbid = debugger.getBBLID(fid, enter_line, exit_line);
 
-    EnterIRB.CreateCall(TrecEnter, {EnterIRB.getInt64(bbid)});
-    ExitIRB.CreateCall(TrecExit, {ExitIRB.getInt64(bbid)});
+    EnterIRB.CreateCall(TrecBBLEnter, {EnterIRB.getInt64(bbid)});
+    ExitIRB.CreateCall(TrecBBLExit, {ExitIRB.getInt64(bbid)});
   }
-
-  llvm::dbgs() << "instr BBs done\n";
 }
 
 std::vector<BasicBlock *> PerfInstr::copyBasicBlocks(Function &F) {
-  llvm::dbgs() << "copying BBs\n";
-
   std::vector<BasicBlock *> oldBlocks;
   std::vector<BasicBlock *> newBlocks;
   ValueToValueMapTy vvmap;
@@ -278,15 +277,10 @@ std::vector<BasicBlock *> PerfInstr::copyBasicBlocks(Function &F) {
   }
 
   for (auto &BB : oldBlocks) {
-    llvm::dbgs() << "copying BBs 0.1\n";
     BasicBlock *b = CloneBasicBlock(BB, vvmap, "", &F);
-    llvm::dbgs() << "copying BBs 0.2\n";
     newBlocks.push_back(b);
-    llvm::dbgs() << "copying BBs 0.3\n";
     blockMap[BB] = b;
   }
-
-  llvm::dbgs() << "copying BBs 1\n";
   
   for (auto &BB : oldBlocks) {
     for (auto &inst : *BB) {
@@ -325,8 +319,6 @@ std::vector<BasicBlock *> PerfInstr::copyBasicBlocks(Function &F) {
     }
   }
 
-  llvm::dbgs() << "copying BBs 2\n";
-
   // Fix the phi instructions.
   for (auto &newBlock : newBlocks) {
     for (auto &inst : *newBlock) {
@@ -345,8 +337,6 @@ std::vector<BasicBlock *> PerfInstr::copyBasicBlocks(Function &F) {
       }
     }
   }
-
-  llvm::dbgs() << "copying BBs done\n";
 
   return newBlocks;
 }

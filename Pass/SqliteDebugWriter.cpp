@@ -224,7 +224,7 @@ int SqliteDebugWriter::queryFuncID(const char* name) {
   return queryID(SQL_TABLE_FUNCNAMES, name);
 }
 
-int SqliteDebugWriter::getBBLID(uint64_t fid, int linestart, int lineend) {
+uint64_t SqliteDebugWriter::getBBLID(uint64_t fid, int linestart, int lineend) {
   char buf[4096];
   snprintf(buf, 4095, "INSERT INTO %s VALUES (NULL, %ld, %d, %d);", SQL_TABLE_BBLS, fid, linestart, lineend);
   char* errmsg;
@@ -236,7 +236,10 @@ int SqliteDebugWriter::getBBLID(uint64_t fid, int linestart, int lineend) {
   sqlite3_free(errmsg);
 
   int id = sqlite3_last_insert_rowid(db);
-  return ((uint64_t) (dbID & 0xffff) << 48) | ((uint64_t) (id & 0xffffffffffff));
+  auto bblid = ((uint64_t) (dbID & 0xffff) << 48) | ((uint64_t) (id & 0xffffffffffff));
+  printf("SqliteDebugWriter::getBBLID: %lu, fid: %lu, bbl_id: %d\n", bblid, fid, id);
+
+  return bblid;
 }
 
 int SqliteDebugWriter::queryID(const char* table, const char* name) {

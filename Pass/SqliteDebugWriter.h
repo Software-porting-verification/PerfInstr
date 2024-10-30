@@ -24,7 +24,7 @@ class SqliteDebugWriter {
   int getFileID(const char* name);
   int getFuncID(const char* name);
   uint64_t craftFID(int fileID, int funcID);
-  int getBBLID(uint64_t fid, int linestart, int lineend);
+  uint64_t getBBLID(uint64_t fid, int linestart, int lineend);
   void commitSQL();
   void beginSQL();
 };
