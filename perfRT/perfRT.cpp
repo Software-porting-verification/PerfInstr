@@ -35,14 +35,18 @@
 #include <sys/syscall.h>         /* Definition of SYS_* constants */
 #include <sys/types.h>
 #include <sys/ioctl.h>
+#include <sys/utsname.h>
 
 constexpr bool debug = false;
 #define DEBUG(body) if (debug) { do { body } while (0); }
 
 
 extern "C" {
-void __trec_perf_enter(long);
-void __trec_perf_exit(long);
+void __trec_perf_func_enter(long);
+void __trec_perf_func_exit(long);
+void __trec_perf_bbl_enter(long);
+void __trec_perf_bbl_exit(long);
+
 // run BBL recording in this function?
 bool __trec_perf_record_bbl(long);
 void __trec_init();
@@ -63,6 +67,12 @@ enum Mode : unsigned char {
   NONE
 };
 
+enum Arch : unsigned char {
+  X64     = 0,
+  RISCV64 = 1,
+  ARM64   = 2
+};
+
 constexpr char g_envDataPath[] = "TREC_PERF_DIR";
 // If this env var is fid=xx,xx,xx, we are automatically in TIME_BBL mode.
 constexpr char g_envMode[]     = "TREC_PERF_MODE";
@@ -75,6 +85,7 @@ static int g_defaultNumOfBuckets = 1024;
 // TODO why __trec_init() is called in every thread?
 static std::atomic_bool g_inited(false);
 static Mode g_mode;
+static Arch g_arch;
 // used to run finalization code upon thread exit
 // static pthread_key_t finalizeKey;
 // used to check if there's a fork
@@ -169,9 +180,7 @@ static std::mutex  * g_lastCallTimeMapLock;
 //
 //===----------------------------------------------------------------------===//
 
-void __trec_perf_enter(long fid) {
-  if (g_mode == NONE) return;
-
+void __trec_enter(long fid) {
   DEBUG(printf("[perfRT] enter %ld\n", fid););
 
   long t = currentTime();
@@ -179,9 +188,7 @@ void __trec_perf_enter(long fid) {
   (*map)[fid] = t;
 }
 
-void __trec_perf_exit(long fid) {
-  if (g_mode == NONE) return;
-
+void __trec_exit(long fid) {
   // FIXME sometimes the key does not exist when 
   // __trec_perf_func_enter() is actually run.
   // E.g., sed when run as `sed '~1d'`
@@ -207,12 +214,36 @@ void __trec_perf_exit(long fid) {
   g_lock->unlock();
 }
 
+void __trec_perf_func_enter(long fid) {
+  if (g_mode == NONE) return;
+  if (g_mode == TIME_BBL) return;
+  __trec_enter(fid);
+}
+
+void __trec_perf_func_exit(long fid) {
+  if (g_mode == NONE) return;
+  if (g_mode == TIME_BBL) return;
+  __trec_exit(fid);
+}
+
+void __trec_perf_bbl_enter(long bblid) {
+  if (g_mode == NONE) return;
+  if (g_mode != TIME_BBL) return;
+  __trec_enter(bblid);
+}
+
+void __trec_perf_bbl_exit(long bblid) {
+  if (g_mode == NONE) return;
+  if (g_mode != TIME_BBL) return;
+  __trec_exit(bblid);
+}
+
 bool __trec_perf_record_bbl(long bbid) {
-  printf("[perfRT] __trec_perf_record_bbl bbid: %ld\n", bbid);
+  // printf("[perfRT] __trec_perf_record_bbl bbid: %ld\n", bbid);
   if (g_mode != TIME_BBL) return false;
   for (auto i : *g_fids) {
     if (i == bbid) {
-      printf("[perfRT] __trec_perf_record_bbl bbid %ld found\n", bbid);    
+      // printf("[perfRT] __trec_perf_record_bbl bbid %ld found\n", bbid);    
       return true;
     }
   }
@@ -273,7 +304,7 @@ void __trec_init() {
 
       while (std::getline(ss, item, ',')) {
         // If there' error, program terminates.
-        printf("adding fid %ld\n", std::stoul(item));
+        // printf("adding fid %ld\n", std::stoul(item));
         fids.push_back(std::stoul(item));
       }
 
@@ -326,6 +357,27 @@ void __trec_init() {
     } else {
       g_defaultNumOfBuckets = count;
     }
+  }
+
+  struct utsname uts;
+  if (uname(&uts)) {
+    fprintf(stderr, "[perfRT] Fail to get machine arch\n");
+    abort();
+  }
+
+  auto arch = std::string(uts.machine);
+  std::string arch_x86   = "x86_64";
+  std::string arch_arm64 = "aarch64";
+  std::string arch_rv64  = "riscv64";
+  if (arch.compare(arch_x86) == 0) {
+    g_arch = X64;
+  } else if (arch.compare(arch_arm64) == 0) {
+    g_arch = ARM64;
+  } else if (arch.compare(arch_rv64) == 0) {
+    g_arch = RISCV64;
+  } else {
+    fprintf(stderr, "[perfRT] Unknown machine arch: %s\n", arch.c_str());
+    abort();
   }
 
   // read program name and cmd args
@@ -443,6 +495,8 @@ static void flushImpl() {
   ofs.put('\3');
   // write mode
   ofs.write((const char *)&g_mode, sizeof(g_mode));
+  // write arch
+  ofs.write((const char *)&g_arch, sizeof(g_arch));
   // write vector length
   ofs.write((const char *)&g_defaultNumOfBuckets, sizeof(g_defaultNumOfBuckets));
   // write time interval
