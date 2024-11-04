@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>性能测试报告</title>
+
+    <link rel="canonical" href="https://getbootstrap.com/docs/5.0/examples/features/">
+    <!-- Bootstrap core CSS -->
+    <link href="assets/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom styles for this template -->
+    <link href="features.css" rel="stylesheet">
+
+    <style>
+      code {
+        font-size: 120%;
+      }
+    </style>
+  </head>
+  <body>
+
+<main>
+  <h1 class="visually-hidden">函数性能测试报告</h1>
+
+  <div class="container px-4 py-5" id="featured-3">
+    <h2 class="pb-2 border-bottom">{{ perf_package }} 性能测试报告</h2>
+    <h5 class="pb-2">时间间隔：{{ interval }}ns</h5>
+    <h5 class="pb-2">数组长度：{{ buckets }}</h5>
+    <h5 class="pb-2">架构1：  {{ arch1 }}</h5>
+    <h5 class="pb-2">架构2：  {{ arch2 }}</h5>
+  </div>
+
+  <div class="b-example-divider"></div>
+
+
+{% for item in reports %}
+
+  <div class="container px-3 py-3" id="featured-3">
+    <div class="row g-2 py-2 row-cols-2">
+
+      <div class="feature col-7">
+        <h3 style="font-family: Source Code Pro, Consolas, monospace">
+          #{{ item.plot_id  }} {{ item.func }}
+        </h3>
+        <h6 style="font-family: Source Code Pro, Consolas, monospace">
+          {{ item.file }}
+        </h6>
+        <h6 style="font-family: Source Code Pro, Consolas, monospace">
+          slowdown: {{ item.ratio }}%
+        </h6>
+        <div id="plot_{{ item.plot_id }}"></div>
+      </div>
+
+      <div class="feature col-5">
+        <div>
+          <h6 style="font-family: Source Code Pro, Consolas, monospace">
+            架构1 fid: {{ item.fid1 }}
+          </h6>
+          <h6 style="font-family: Source Code Pro, Consolas, monospace" class="pb-2 border-bottom">
+            架构2 fid: {{ item.fid2 }}
+          </h6>
+        <div><pre><code style="font-size: 115%">
+{{ item.code }}
+        </code></pre></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="b-example-divider"></div>
+
+{% endfor %}
+
+
+</main>
+
+    <script src="assets/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="plotly-2.35.2.min.js" charset="utf-8"></script>
+
+    <script>
+      {% for plot in plots %}
+  
+      TESTER = document.getElementById('plot_{{ plot.plot_id }}');
+  
+      // Define the data for the first line
+      trace1 = {
+          x: [
+            {% for i in plot.xs1 %}
+            {{ i }},
+            {% endfor %}
+          ],
+          y: [
+            {% for i in plot.ys1 %}
+            {{ i }},
+            {% endfor %}
+          ],
+          mode: 'lines',
+          name: '架构1'
+      };
+  
+      // Define the data for the second line
+      trace2 = {
+          x: [
+            {% for i in plot.xs2 %}
+            {{ i }},
+            {% endfor %}
+          ],
+          y: [
+            {% for i in plot.ys2 %}
+            {{ i }},
+            {% endfor %}
+          ],
+          mode: 'lines',
+          name: '架构2'
+      };
+  
+      // Combine the traces into a single data array
+      data = [trace1, trace2];
+  
+      // Define layout options
+      layout = {
+          // title: 'Two-Line Chart',
+          xaxis: { title: 'time' },
+          yaxis: { title: 'count' }
+      };
+  
+      // Plot the chart
+      Plotly.newPlot(TESTER, data, layout);
+  
+      {% endfor %}
+    </script>
+
+
+  </body>
+</html>
