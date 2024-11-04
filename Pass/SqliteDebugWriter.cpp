@@ -237,7 +237,7 @@ uint64_t SqliteDebugWriter::getBBLID(uint64_t fid, int linestart, int lineend) {
 
   int id = sqlite3_last_insert_rowid(db);
   auto bblid = ((uint64_t) (dbID & 0xffff) << 48) | ((uint64_t) (id & 0xffffffffffff));
-  printf("SqliteDebugWriter::getBBLID: %lu, fid: %lu, bbl_id: %d\n", bblid, fid, id);
+  // printf("SqliteDebugWriter::getBBLID: %lu, fid: %lu, bbl_id: %d\n", bblid, fid, id);
 
   return bblid;
 }
