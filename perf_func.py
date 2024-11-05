@@ -168,7 +168,7 @@ if __name__ == '__main__':
     parser.add_argument('dataDir1', type=str, help='directory of perf data and debuginfo from the 1st archtecture')
     parser.add_argument('dataDir2', type=str, help='directory of perf data and debuginfo from the 2nd archtecture')
     parser.add_argument('-p', '--prefix', type=str, help='path prefix inside OBS environemnt')
-    parser.add_argument('-t', '--threshold', type=str, help='bad performance threshold, default: 0.5')
+    parser.add_argument('-t', '--threshold', type=float, help='bad performance threshold, default: 0.5')
 
     args = parser.parse_args()
     if not args.prefix == None:

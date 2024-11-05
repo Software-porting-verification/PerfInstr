@@ -39,7 +39,7 @@ def get_g_obs_prefix():
 
 def set_g_bad_threshold(t):
     global g_bad_threshold
-    g_bad_threshold = p
+    g_bad_threshold = t
 
 
 def get_g_bad_threshold():
