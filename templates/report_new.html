@@ -4,14 +4,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title>性能测试报告</title>
+    <title>{{ perf_package }} 函数性能测试报告</title>
 
     <link rel="canonical" href="https://getbootstrap.com/docs/5.0/examples/features/">
     <!-- Bootstrap core CSS -->
     <link href="assets/dist/css/bootstrap.min.css" rel="stylesheet">
 
     <!-- Custom styles for this template -->
-    <link href="features.css" rel="stylesheet">
+    <link href="assets/features.css" rel="stylesheet">
 
     <style>
       code {
@@ -25,7 +25,7 @@
   <h1 class="visually-hidden">函数性能测试报告</h1>
 
   <div class="container px-4 py-5" id="featured-3">
-    <h2 class="pb-2 border-bottom">{{ perf_package }} 性能测试报告</h2>
+    <h2 class="pb-2 border-bottom">{{ perf_package }} 函数性能测试报告</h2>
     <h5 class="pb-2">时间间隔：{{ interval }}ns</h5>
     <h5 class="pb-2">数组长度：{{ buckets }}</h5>
     <h5 class="pb-2">架构1：  {{ arch1 }}</h5>
@@ -77,7 +77,7 @@
 </main>
 
     <script src="assets/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script src="assets/plotly-2.35.2.min.js" charset="utf-8"></script>
 
     <script>
       {% for plot in plots %}
