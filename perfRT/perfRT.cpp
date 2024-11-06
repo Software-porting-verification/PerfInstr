@@ -297,7 +297,7 @@ void __trec_init() {
   } else {
     std::string v = std::string(env);
     if (v.starts_with("fid=")) {
-      printf("BBL recording mode\n");
+      // printf("BBL recording mode\n");
       std::stringstream ss(v.substr(4));
       std::vector<unsigned long> fids;
       std::string item;
