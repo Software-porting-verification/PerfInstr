@@ -163,14 +163,10 @@
       // Define the data for the first line
       trace1 = {
           x: [
-            {% for i in plot.xs1 %}
-            {{ i }},
-            {% endfor %}
+            {% for i in plot.xs1 %}{{ i }},{% endfor %}
           ],
           y: [
-            {% for i in plot.ys1 %}
-            {{ i }},
-            {% endfor %}
+            {% for i in plot.ys1 %}{{ i }},{% endfor %}
           ],
           mode: 'lines',
           name: '架构1'
@@ -179,14 +175,10 @@
       // Define the data for the second line
       trace2 = {
           x: [
-            {% for i in plot.xs2 %}
-            {{ i }},
-            {% endfor %}
+            {% for i in plot.xs2 %}{{ i }},{% endfor %}
           ],
           y: [
-            {% for i in plot.ys2 %}
-            {{ i }},
-            {% endfor %}
+            {% for i in plot.ys2 %}{{ i }},{% endfor %}
           ],
           mode: 'lines',
           name: '架构2'
