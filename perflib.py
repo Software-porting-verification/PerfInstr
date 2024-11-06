@@ -745,18 +745,14 @@ def fetch_source_code_range(pd: PerfData, func: str, fid, start, end):
     # remove prefix and concat with srcDir
     bare_name = pd.get_file_name(fid).removeprefix(get_g_obs_prefix())
     src_file = pd.srcDir + bare_name
-    # get line, for perf-instr, line num is in `func`
-    # use rsplit() instead of split() because of names like "OptionStorageTemplate<gmx::BooleanOption>: 401"
-    # nameline = func.rsplit(':', 1)
-    # name = nameline[0]
-    # -1 to include the function name decl
-    # line = int(nameline[1].strip()) - 1
 
     if checkFileNoExit(src_file):
         # open file and read several lines
         with open(src_file, 'r') as f:
             lines = f.readlines()
             srcs = lines[start:end+1]
+            if srcs == []:
+                srcs = ['src not found']
     else:
         srcs = ['src not found']
 
