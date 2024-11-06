@@ -28,9 +28,9 @@ from perflib import *
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Dump perf data.')
-    parser.add_argument('data_file', type=str, help='path to perf data file')
     parser.add_argument('src_dir', type=str, help='path to src dir')
     parser.add_argument('debuginfo', type=str, help='path to debuginfo dir')
+    parser.add_argument('data_file', type=str, help='path to perf data file')
 
     args = parser.parse_args()
     if os.path.isfile(args.data_file) and os.path.isdir(args.src_dir) and os.path.isdir(args.debuginfo):
