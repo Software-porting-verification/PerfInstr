@@ -133,7 +133,7 @@ void PerfInstr::initialize(Module& M) {
   TrecBBLExit = M.getOrInsertFunction("__trec_perf_bbl_exit", Attr,
                                        IRB.getVoidTy(), IRB.getInt64Ty());
   TrecRecordBBL = M.getOrInsertFunction("__trec_perf_record_bbl", Attr,
-                                       IRB.getInt64Ty());
+                                       IRB.getInt1Ty(), IRB.getInt64Ty());
 }
 
 bool PerfInstr::instrmentFunction(Function& F) {
@@ -186,7 +186,6 @@ bool PerfInstr::instrmentFunction(Function& F) {
   // llvm::dbgs() << "\t filename: " << F.getSubprogram()->getFilename() << "\n";
 
   BasicBlock *entry = &F.getEntryBlock();
-  IRBuilder<> irbEntry(&*entry->getFirstInsertionPt());
 
   EscapeEnumerator EE(F);
   std::vector<IRBuilder<> *> escapes;
@@ -208,6 +207,7 @@ bool PerfInstr::instrmentFunction(Function& F) {
   instrumentBasicBlocks(newBlocks, fid);
 
   // instrument function recording last
+  IRBuilder<> irbEntry(&*entry->getFirstInsertionPt());
   irbEntry.CreateCall(TrecFuncEnter, {irbEntry.getInt64(fid)});
   for (auto irbExit : escapes) {
     irbExit->CreateCall(TrecFuncExit, {irbExit->getInt64(fid)});
@@ -337,7 +337,6 @@ std::vector<BasicBlock *> PerfInstr::copyBasicBlocks(Function &F) {
       }
     }
   }
-
   return newBlocks;
 }
 
