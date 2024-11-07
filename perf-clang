@@ -1,10 +1,13 @@
 #!/bin/bash
 
 # You may have to adjust the following two paths.
-CLANG=/usr/bin/clang
-PASS_PLUGIN=/usr/lib/PerfInstrPass.so
+CLANG=clang
+# path to the instrumentation pass plugin: PerfInstrPass.so
+PASS_PLUGIN=
+# path to the perf runtime library: libperfRT.a
+PERFRT_PATH=
 
-FLAGS="-g -fno-discard-value-names -lperfRT -fpass-plugin=$PASS_PLUGIN -fuse-ld=lld"
+FLAGS="-O2 -g -fno-discard-value-names -L$PERFRT_PATH -lperfRT -fpass-plugin=$PASS_PLUGIN -fuse-ld=lld"
 
 # -lstdc++: perfRT is written in C++
-$CLANG $FLAGS -lstdc++ "$@" -Wno-error=unused-command-line-argument
+$CLANG $FLAGS -lstdc++ "$@" -Wno-error=unused-command-line-argument -Wno-error=implicit-function-declaration -Wno-error=strict-prototypes -Wno-error=unused-but-set-variable
