@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.6)
+cmake_minimum_required(VERSION 3.22)
 project(TraceRecorder)
 
 # use C++20.
@@ -24,3 +24,6 @@ link_directories(${LLVM_LIBRARY_DIRS})
 # add_subdirectory(skeleton)
 add_subdirectory(Pass)
 add_subdirectory(perfRT)
+
+configure_file(perf-clang.in   ${CMAKE_INSTALL_PREFIX}/lib/perf-clang   FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+configure_file(perf-clang++.in ${CMAKE_INSTALL_PREFIX}/lib/perf-clang++ FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)

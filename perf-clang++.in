@@ -3,9 +3,9 @@
 # You may have to adjust the following two paths.
 CLANG=clang++
 # path to the instrumentation pass plugin: PerfInstrPass.so
-PASS_PLUGIN=
-# path to the perf runtime library: libperfRT.a
-PERFRT_PATH=
+PASS_PLUGIN=@CMAKE_INSTALL_PREFIX@/lib/PerfInstrPass.so
+# path to the dir of perf runtime library: libperfRT.a
+PERFRT_PATH=@CMAKE_INSTALL_PREFIX@/lib/
 
 FLAGS="-O2 -ggdb -fno-discard-value-names -L$PERFRT_PATH -lperfRT -fpass-plugin=$PASS_PLUGIN -fuse-ld=lld"
 
