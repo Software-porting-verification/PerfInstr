@@ -81,7 +81,7 @@ constexpr char g_envBucketCount[] = "TREC_PERF_BUCKET_COUNT";
 // constexpr int idxInfinity = defaultNumOfBuckets - 1;
 // constexpr int lengthOfTimeIntervals = defaultNumOfBuckets - 1;
 
-static int g_defaultNumOfBuckets = 1024;
+static int g_defaultNumOfBuckets = 4096;
 // TODO why __trec_init() is called in every thread?
 static std::atomic_bool g_inited(false);
 static Mode g_mode;
@@ -92,7 +92,7 @@ static Arch g_arch;
 static pid_t g_pid;
 static unsigned int * g_timeIntervals;
 // time interval as per bucket (nanosecond)
-static int g_interval = 5000;
+static int g_interval = 250;
 
 // fid -> buckets
 static std::unordered_map<long, std::vector<long>> * g_funcCallCounter;
