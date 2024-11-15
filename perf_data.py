@@ -223,7 +223,7 @@ def main(dir1: str, dir2: str):
     matches: list[tuple[PerfData, PerfData]] = find_matches(perfDatas1, perfDatas2)
 
     for kv in matches:
-        analyze(kv[0], kv[1])
+        analyze_time(kv[0], kv[1])
 
 
 ###
