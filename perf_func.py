@@ -73,7 +73,7 @@ class FuncPlot:
             t += 1
 
 
-def generate_report_new(results: list[PerfResult], path = '.'):
+def generate_report_new(results: list[PerfResult], name, path = '.'):
     results = dedup_reports(results)
     print(f'Generating report for {len(results)} results...')
     reports: ReportItemNew = []
@@ -94,7 +94,8 @@ def generate_report_new(results: list[PerfResult], path = '.'):
     if reports == []:
         return
 
-    filename = Path(reports[0].file).parts[0]
+    # filename = Path(reports[0].file).parts[0]
+    filename = name
 
     from jinja2 import Environment, PackageLoader, select_autoescape
     env = Environment(
@@ -111,7 +112,7 @@ def generate_report_new(results: list[PerfResult], path = '.'):
     print('Rendered.')
 
 
-def main(dir1: str, dir2: str):
+def main(dir1: str, dir2: str, name: str, path = '.'):
     dataDir1 = dir1 + "/perf_data"
     dataDir2 = dir2 + "/perf_data"
     dbDir1   = dir1 + "/debuginfo"
@@ -155,7 +156,7 @@ def main(dir1: str, dir2: str):
         pd.srcDir = srcDir2
 
     res, good_res = analyze_all(perfDatas1, perfDatas2)
-    generate_report_new(res)
+    generate_report_new(res, name, path)
 
 
 ###
@@ -168,11 +169,21 @@ if __name__ == '__main__':
     parser.add_argument('dataDir1', type=str, help='directory of perf data and debuginfo from the 1st archtecture')
     parser.add_argument('dataDir2', type=str, help='directory of perf data and debuginfo from the 2nd archtecture')
     parser.add_argument('-p', '--prefix', type=str, help='path prefix inside OBS environemnt')
-    parser.add_argument('-t', '--threshold', type=float, help='bad performance threshold, default: 0.5')
+    parser.add_argument('-t', '--threshold', type=float, help='bad performance threshold, default: 0.8')
+    parser.add_argument('-n', '--name', type=str, help='name of package')
+    parser.add_argument('-o', '--output', type=str, help='path to report')
 
     args = parser.parse_args()
     if not args.prefix == None:
         set_g_obs_prefix(args.prefix)
     if not args.threshold == None:
         set_g_bad_threshold(args.threshold)
-    main(args.dataDir1, args.dataDir2)
+    if args.name == None:
+        name = 'unknown_package'
+    else:
+        name = args.name
+    if args.output == None:
+        path = '.'
+    else:
+        path = args.output
+    main(args.dataDir1, args.dataDir2, name, path)
