@@ -2,6 +2,7 @@ build
 .cache/
 .vscode/
 .directory
+data/
 *.so
 *.tar.xz
 *.png
