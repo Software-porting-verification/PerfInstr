@@ -74,6 +74,11 @@ class FuncPlot:
 
 
 def generate_report_new(results: list[PerfResult], name, path = '.'):
+    """
+    Generate HTML report with given `name` under directory `path`,
+    from the list of PerfResults.
+    Return the number of reports.
+    """
     results = dedup_reports(results)
     print(f'Generating report for {len(results)} results...')
     reports: ReportItemNew = []
@@ -110,6 +115,7 @@ def generate_report_new(results: list[PerfResult], name, path = '.'):
             arch1 = results[0].pd1.arch.name, arch2 = results[0].pd2.arch.name,
             reports = reports, plots = plots))
     print('Rendered.')
+    return len(results)
 
 
 def main(dir1: str, dir2: str, name: str, path = '.'):
@@ -156,7 +162,7 @@ def main(dir1: str, dir2: str, name: str, path = '.'):
         pd.srcDir = srcDir2
 
     res, good_res = analyze_all(perfDatas1, perfDatas2)
-    generate_report_new(res, name, path)
+    return generate_report_new(res, name, path)
 
 
 ###
