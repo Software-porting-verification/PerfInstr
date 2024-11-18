@@ -108,7 +108,7 @@ def generate_report_new(results: list[PerfResult], name, path = '.'):
         autoescape=select_autoescape()
     )
     template = env.get_template('report_new.html')
-    with open(f'{filename}.html', 'w') as f:
+    with open(f'{path}/{filename}.html', 'w') as f:
         print('Rendering report...')
         f.write(template.render(perf_package = filename,
             interval = results[0].pd1.interval, buckets = results[0].pd1.buckets,
