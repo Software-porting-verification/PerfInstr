@@ -71,6 +71,22 @@ def compute_score(pd, fid, func_name, data):
     return sum_time(pd.buckets, data)
 
 
+def compute_time_weight(pd: PerfData, fid: int, func_name: str, raw_data: list[int]):
+    w = np.array([i for i in range(1, pd.buckets + 1)])
+    d = np.array(raw_data)
+    s = (w * d).sum().item()
+
+    return s
+
+
+def compute_time(pd: PerfData, fid: int, func_name: str, raw_data: list[int]):
+    w = np.array([i for i in range(pd.interval, pd.interval * (pd.buckets + 1), pd.interval)])
+    d = np.array(raw_data)
+    s = (w * d).sum().item()
+
+    return s
+
+
 def compute_score_y_over_x(pd, fid, func_name, raw_data):
     x = np.array([i for i in range(1, 1 + pd.buckets)])
     y = np.array(raw_data)
@@ -98,6 +114,16 @@ def sum_data(data_list: list[list[int]]):
     return summed_data
 
 
+g_scorers = [
+#   score name, function that computes score
+    ['weight',  compute_score],
+    ['time_weight', compute_time_weight],
+    ['time',    compute_time],
+    ['y/x',     compute_score_y_over_x],
+    ['1/(x/y)', compute_score_inverse_x_over_y]
+]
+
+
 def rvbench_test_star(pds: list[PerfData], path):
     """
     Compute the sum and average performance scores from the list of performance data.
@@ -107,13 +133,10 @@ def rvbench_test_star(pds: list[PerfData], path):
     # find function name and matching data
     # compare using raw data
     f = open(path, 'w')
-    f.write(f'cmd: {pds[0].cmd}\n')
-    f.write(f'symbol,score_total,score_avg,')
-    i = 1
-    for pd in pds:
-        f.write(f'score {i},')
-        i += 1
-    f.write(f'score_y/x,score_1/(x/y),')
+    f.write(f'cmd: {pds[0].cmd.replace('\0', '.')}\n')
+    f.write(f'symbol,')
+    for s in g_scorers:
+        f.write(f'{s[0]},')
     f.write('data\n')
 
     # get common fid
@@ -139,41 +162,32 @@ def rvbench_test_star(pds: list[PerfData], path):
         func_to_list_of_data[func] = matching_data
         assert len(matching_data) == len(pds)
 
-    sum_total = 0
-    sum_y_over_x = 0
-    sum_inverse_x_over_y = 0
+    sums = [0 for i in range(len(g_scorers))]
+
     for func, matching_data_list in func_to_list_of_data.items():
-        result_list = list(map(lambda x: compute_score(x[0], x[1], x[2], x[3]), matching_data_list))
-        s = sum(result_list)
-        avg = s / len(result_list)
-
-        # TODO flexible score comp.
-        result_list_1 = list(map(lambda x: compute_score_y_over_x(x[0], x[1], x[2], x[3]), matching_data_list))
-        avg_y_over_x = sum(result_list_1) / len(result_list)
-
-        result_list_2 = list(map(lambda x: compute_score_inverse_x_over_y(x[0], x[1], x[2], x[3]), matching_data_list))
-        avg_inverse_x_over_y = sum(result_list_2) / len(result_list)
-
-        sum_total += avg
-        sum_y_over_x += avg_y_over_x
-        sum_inverse_x_over_y += avg_inverse_x_over_y
+        f.write(f'{func},')
+        i = 0
+        for sc in g_scorers:
+            score_f = sc[1]
+            res_list = list(map(lambda x: score_f(x[0], x[1], x[2], x[3]), matching_data_list))
+            avg = sum(res_list) / len(res_list)
+            f.write(f'{avg},')
+            sums[i] += avg
+            i += 1
 
         # add up dist
         summed_data = sum_data(list(map(lambda x: x[3], matching_data_list))).tolist()
-
-        f.write(f'{func},{s},{avg},')
-        for r in result_list:
-            f.write(f'{r},')
-        f.write(f'{avg_y_over_x},{avg_inverse_x_over_y}')
         f.write(f'{','.join(map(str, summed_data))}\n')
 
-    f.write(f'sum_total,{sum_total}\n')
-    f.write(f'sum_y/x,{sum_y_over_x}\n')
-    f.write(f'sum_1/(x/y),{sum_inverse_x_over_y}\n')
+    # per-testcase result
+    i = 0
+    for x in sums:
+        f.write(f'total_{g_scorers[i][0]},{x}\n')
+        i += 1
 
     f.close()
 
-    return sum_total, sum_y_over_x, sum_inverse_x_over_y
+    return sums
 
 
 
@@ -213,20 +227,22 @@ def main(dirs: list[str], path: str):
 
     print('Computing score...')
     i = 0
-    sum_total = 0
-    sum_y_over_x = 0
-    sum_inverse_x_over_y = 0
+    sums = [0 for i in range(len(g_scorers))]
+
     for ms in matches:
-        s1, s2, s3 = rvbench_test_star(ms, f'{path}/{i}.csv')
-        sum_total += s1
-        sum_y_over_x += s2
-        sum_inverse_x_over_y += s3
+        ss = rvbench_test_star(ms, f'{path}/{i}.csv')
+        j = 0
+        for s in ss:
+            sums[j] += s
+            j += 1
         i += 1
 
+    # sum result of all testcases
     with open(f'{path}/total.csv', 'w') as f:
-        f.write(f'sum_total,{sum_total}\n')
-        f.write(f'sum_y/x,{sum_y_over_x}\n')
-        f.write(f'sum_1/(x/y),{sum_inverse_x_over_y}\n')
+        i = 0
+        for s in sums:
+            f.write(f'total_{g_scorers[i][0]},{s}\n')
+            i += 1
 
     print('Done.')
     
