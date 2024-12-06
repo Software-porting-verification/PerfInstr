@@ -21,6 +21,7 @@ import argparse
 # import seaborn as sns
 import sqlite3
 from contextlib import closing
+import yaml
 from perflib import *
 
 # Apply the default theme
@@ -29,6 +30,8 @@ from perflib import *
 # dump as text
 # dump as excel?
 # draw diagram
+
+g_dump = False
 
 
 def dedup_reports(results: list[PerfResult]):
@@ -73,6 +76,11 @@ class FuncPlot:
             t += 1
 
 
+def dump_result(res, name, path):
+    with open(f'{path}/{name}.yaml', 'w') as f:
+        yaml.dump(res, f)
+
+
 def generate_report_new(results: list[PerfResult], name, path = '.'):
     """
     Generate HTML report with given `name` under directory `path`,
@@ -83,6 +91,7 @@ def generate_report_new(results: list[PerfResult], name, path = '.'):
     print(f'Generating report for {len(results)} results...')
     reports: ReportItemNew = []
     plots = []
+    to_dump = []
 
     plot_id = 0
     for res in results:
@@ -93,6 +102,8 @@ def generate_report_new(results: list[PerfResult], name, path = '.'):
             ss += s
         reports.append(ReportItemNew(res.func, res.fid1, res.fid2, ss, src_file, plot_id, res.ratio))
         plots.append(FuncPlot(plot_id, res.pd1.interval, res.dist1, res.dist2))
+        if g_dump:
+            to_dump.append([res.func, res.fid1, res.fid2, ss, src_file, res.ratio, res.pd1.interval, res.dist1, res.dist2])
 
         plot_id += 1
 
@@ -114,7 +125,16 @@ def generate_report_new(results: list[PerfResult], name, path = '.'):
             interval = results[0].pd1.interval, buckets = results[0].pd1.buckets,
             arch1 = results[0].pd1.arch.name, arch2 = results[0].pd2.arch.name,
             reports = reports, plots = plots))
+    template = env.get_template('report_new_bubble.html')
+    with open(f'{path}/{filename}_bubble.html', 'w') as f:
+        print('Rendering bubble report...')
+        f.write(template.render(perf_package = filename,
+            interval = results[0].pd1.interval, buckets = results[0].pd1.buckets,
+            arch1 = results[0].pd1.arch.name, arch2 = results[0].pd2.arch.name,
+            reports = reports, plots = plots))
     print('Rendered.')
+    if g_dump:
+        dump_result(to_dump, name, path)
     return len(results)
 
 
@@ -178,6 +198,7 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--threshold', type=float, help='bad performance threshold, default: 0.8')
     parser.add_argument('-n', '--name', type=str, help='name of package')
     parser.add_argument('-o', '--output', type=str, help='path to report')
+    parser.add_argument('--dump', action='store_true', help='dump results to yaml for later processing')
 
     args = parser.parse_args()
     if not args.prefix == None:
@@ -192,4 +213,5 @@ if __name__ == '__main__':
         path = '.'
     else:
         path = args.output
+    g_dump = args.dump
     main(args.dataDir1, args.dataDir2, name, path)
