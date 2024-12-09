@@ -84,17 +84,20 @@ if __name__ == '__main__':
         # print(pkgs)
         # print(archs)
 
-        for i in range(len(ds[0].sums)):
-            with open(f'{out}/sum{i}.csv', 'w') as outf:
+        with open(f'{out}/sum.csv', 'w') as outf:
+            for i in range(len(ds[0].sums)):
                 outf.write(f'{names[i]}\n')
                 outf.write(',')
                 for p in pkgs:
                     outf.write(f'{p},')
-                outf.write('\n')
+                outf.write('total\n')
                 for a in archs:
                     outf.write(f'{a},')
+                    scores = 0
                     for p in pkgs:
                         d = find_data(ds, p, a)
                         outf.write(f'{d.sums[i]},')
-                    outf.write('\n')
+                        scores += float(d.sums[i])
+                    outf.write(f'{scores}\n')
+                outf.write('\n')
 
