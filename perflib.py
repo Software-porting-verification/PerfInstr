@@ -364,6 +364,17 @@ def checkDB(path):
         exit(-1)
 
 
+def str_mod_arch(s: str):
+    """
+    Some cmds (e.g., lua) contains arch strings (x86_64, riscv64, ...), remove them.
+    """
+    arches = ['x86_64', 'riscv64']
+    for a in arches:
+        s = s.replace(a, '')
+
+    return s
+
+
 def find_matches(perfDatas1: list[PerfData], perfDatas2: list[PerfData]) -> list[tuple[PerfData, PerfData]]:
     # print('Looking for matching perf data...')
     list1 = perfDatas1.copy()
@@ -380,7 +391,7 @@ def find_matches(perfDatas1: list[PerfData], perfDatas2: list[PerfData]) -> list
         pd1 = list1[i]
         foundMatch = False
         for pd2 in list2:
-            if pd1.cmd == pd2.cmd:
+            if str_mod_arch(pd1.cmd) == str_mod_arch(pd2.cmd):
                 matches.append((pd1, pd2))
                 list1.remove(pd1)
                 list2.remove(pd2)
@@ -399,7 +410,7 @@ def find_matches_star(perf_data_list_list: list[list[PerfData]]):
     print('Looking for multiple matching perf data...')
     # make sets of cmd in each list of PerfData and do intersection
     list_of_sets_of_cmd: list[set[str]] = \
-        list(map(lambda ds: set(map(lambda d: d.cmd, ds)), perf_data_list_list))
+        list(map(lambda ds: set(map(lambda d: str_mod_arch(d.cmd), ds)), perf_data_list_list))
 
     common_cmds = list_of_sets_of_cmd[0]
     for s in list_of_sets_of_cmd[1:]:
@@ -413,7 +424,7 @@ def find_matches_star(perf_data_list_list: list[list[PerfData]]):
         matching_perf_data = []
         for pds in perf_data_list_list:
             for pd in pds:
-                if pd.cmd == cmd:
+                if str_mod_arch(pd.cmd) == cmd:
                     matching_perf_data.append(pd)
                     break
         assert len(matching_perf_data) == len(perf_data_list_list)
