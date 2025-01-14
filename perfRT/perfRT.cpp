@@ -181,6 +181,7 @@ static std::mutex  * g_lastCallTimeMapLock;
 //===----------------------------------------------------------------------===//
 
 void __trec_enter(long fid) {
+  if (getpid() != g_pid) return;
   DEBUG(printf("[perfRT] enter %ld\n", fid););
 
   long t = currentTime();
@@ -189,6 +190,8 @@ void __trec_enter(long fid) {
 }
 
 void __trec_exit(long fid) {
+  if (getpid() != g_pid) return;
+
   // FIXME sometimes the key does not exist when 
   // __trec_perf_func_enter() is actually run.
   // E.g., sed when run as `sed '~1d'`
@@ -257,6 +260,9 @@ void __trec_deinit() {
   DEBUG(printf("perfRT deinit\n"););
 
   *g_shouldQuit = true;
+  // `man fork`: The child process is created with a single thread—the one that called fork().
+  // Hence joining the flusher thread results in exception.
+  if (getpid() != g_pid) return;
   g_flusher->join();
 
   delete g_funcCallCounter;
