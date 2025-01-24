@@ -34,8 +34,14 @@ Python版本必须>=3.12。
 ## 算分
 
 算分使用`rvbench_score.fish`脚本。
-使用该脚本之前，修改脚本中`RVBENCH_TEST`和`RVBENCH_SUMMARIZE`变量的值，
-使其指向正确脚本路径。
+使用该脚本时，需*按顺序*传入`RVBENCH_TEST`和`RVBENCH_SUMMARIZE`两个参数，
+其中`RVBENCH_TEST`为本项目`rvbench_test_star.py`脚本*绝对路径*，
+`RVBENCH_SUMMARIZE`为本项目`rvbench_summarize.py`脚本*绝对路径*，
+例如：
+
+```bash
+./rvbench_score.fish $(pwd)/rvbench_test_star.py $(pwd)/rvbench_summarize.py
+```
 
 在顶层目录执行`rvbench_score.fish`后，会在各个`pkg`目录生成：
 
